@@ -33,7 +33,6 @@ jobs:
           ls
       - name: Run Make release
         run: |
-          cd go
           make all
           make release
       - name: See dist bin directory

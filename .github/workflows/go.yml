@@ -1,0 +1,40 @@
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.S3_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13.1' # The Go version to download (if necessary) and use.
+      - run: go version
+
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-boto3
+      - name: Print Versions
+        run: |
+           go version
+      - name: where am i?
+        run: |
+          pwd
+          ls
+      - name: Run Make release
+        run: |
+          cd go
+          make all
+          make release
+      - name: See dist bin directory
+        run: |
+          ls -la bin
+          pwd

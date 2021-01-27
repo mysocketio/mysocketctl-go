@@ -21,8 +21,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/jedib0t/go-pretty/table"
+	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 )
 

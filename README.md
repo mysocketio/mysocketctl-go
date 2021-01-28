@@ -1,6 +1,7 @@
 Mysocketctl: a CLI tool for Mysocket.io ,
 ==================================================
-This is the Go Implementation of mysocketctl
+This is the Go Implementation of mysocketctl.
+
 Mysocketctl is a CLI wrapper around the Mysocket.io API.
 
 Please check the full documentation here: [mysocketctl documentation on readthedocs.io](https://andreet.readthedocs.io/en/latest/mysocketctl/mysocket.html#)

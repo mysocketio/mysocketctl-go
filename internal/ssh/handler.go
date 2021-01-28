@@ -66,9 +66,8 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		sshConfig.Auth = append(sshConfig.Auth, ssh.PublicKeys(signers...))
 	}
 
-	fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
-
 	for {
+		fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
 		time.Sleep(2 * time.Second)
 		serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)
 		if err != nil {
@@ -126,8 +125,10 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		}()
 
 		if err := session.Wait(); err != nil {
-			log.Print(err)
-			continue
+			log.Printf("ssh session error: %v", err)
+			session.Close()
+			listener.Close()
+			serverConn.Close()
 		}
 	}
 }

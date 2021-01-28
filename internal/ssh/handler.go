@@ -103,24 +103,31 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 			continue
 		}
 
-		for {
-			client, err := listener.Accept()
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-
-			go func() {
-				local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
+		go func() {
+			for {
+				client, err := listener.Accept()
 				if err != nil {
-					log.Printf("Dial INTO local service error: %s", err)
+					log.Printf("SSH accept error: %v", err)
 					return
 				}
 
-				//go ioCopy(client, local)
-				//go ioCopy(local, client)
-				go handleClient(client, local)
-			}()
+				go func() {
+					local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
+					if err != nil {
+						log.Printf("Dial INTO local service error: %s", err)
+						return
+					}
+
+					//go ioCopy(client, local)
+					//go ioCopy(local, client)
+					go handleClient(client, local)
+				}()
+			}
+		}()
+
+		if err := session.Wait(); err != nil {
+			log.Print(err)
+			continue
 		}
 	}
 }

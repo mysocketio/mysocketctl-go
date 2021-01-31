@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -104,13 +105,22 @@ var socketCreateCmd = &cobra.Command{
 				if emailRegex.MatchString(email) {
 					allowedEmailAddresses = append(allowedEmailAddresses, email)
 				} else {
-					log.Printf("Warning: ignoring invalid email %s", email)
+					if email != "" {
+						log.Printf("Warning: ignoring invalid email %s", email)
+					}
 				}
 			}
 
 			for _, d := range strings.Split(cloudauth_domains, ",") {
 				domain := strings.TrimSpace(d)
-				allowedEmailDomains = append(allowedEmailDomains, domain)
+				if domain != "" {
+					allowedEmailDomains = append(allowedEmailDomains, domain)
+				}
+			}
+			if len(allowedEmailDomains) == 0 && len(allowedEmailAddresses) == 0 {
+				log.Println("No Email or Email Domains were provided.")
+				log.Println("No-one will have access.")
+				os.Exit(1)
 			}
 		}
 

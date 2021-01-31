@@ -2,15 +2,16 @@ package ssh
 
 import (
 	"fmt"
-	"github.com/mysocketio/mysocketctl-go/internal/http"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"time"
+
+	"github.com/mysocketio/mysocketctl-go/internal/http"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 const (
@@ -68,16 +69,18 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 
 	for {
 		fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)
 		if err != nil {
 			log.Printf("Dial INTO remote server error: %s", err)
 			continue
 		}
+		defer serverConn.Close()
 
 		listener, err := serverConn.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
 		if err != nil {
 			log.Printf("Listen open port ON remote server on port %d error: %s", tunnel.LocalPort, err)
+			serverConn.Close()
 			continue
 		}
 		defer listener.Close()
@@ -106,7 +109,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 			for {
 				client, err := listener.Accept()
 				if err != nil {
-					log.Printf("SSH accept error: %v", err)
+					log.Printf("Tunnel Connection accept error: %v", err)
 					return
 				}
 
@@ -130,6 +133,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 			listener.Close()
 			serverConn.Close()
 		}
+		serverConn.Close()
 	}
 }
 

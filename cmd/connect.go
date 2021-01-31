@@ -145,7 +145,7 @@ var connectCmd = &cobra.Command{
 		}
 
 		userIDStr := *userID
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		ch := make(chan os.Signal)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		go func() {

@@ -13,6 +13,7 @@ Please download the binaries at https://download.edge.mysocket.io
 Authors
 --------------------
 * Andree Toonk
+* Bas Toonk
 
 Links
 --------------------

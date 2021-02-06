@@ -186,7 +186,7 @@ func getCert(token string, hostname string) *CertificateReponse {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalln("Error in request: %v", err)
+		log.Fatalf("Error in request: %v", err)
 	}
 
 	defer resp.Body.Close()

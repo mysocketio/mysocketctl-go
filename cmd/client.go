@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+        "bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -27,6 +28,11 @@ import (
 	"os/exec"
 	"runtime"
 	"time"
+        "crypto/rsa"
+        "crypto/rand"
+        "crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/spf13/cobra"
@@ -39,6 +45,10 @@ const (
 	mysocket_succes_url = "https://mysocket.io/succes-message/"
 	mysocket_fail_url   = "https://mysocket.io/fail-message/"
 )
+
+type CertificateSigningRequest struct {
+	Csr string `json:"csr"`
+}
 
 type CertificateReponse struct {
 	PrivateKey  string `json:"client_private_key,omitempty"`
@@ -68,9 +78,26 @@ var clientTlsCmd = &cobra.Command{
 		local_port := listener.Addr().(*net.TCPAddr).Port
 		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
 		token := launch(url, listener)
+
+		jwt_token, err := jwt.Parse(token, nil)
+		if jwt_token == nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
+
+		claims := jwt_token.Claims.(jwt.MapClaims)
+		if _, ok := claims["user_email"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for user_email")
+		}
+
+		if _, ok := claims["socket_dns"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for socket_dns")
+		}
+
 		var cert *CertificateReponse
 		if token != "" {
-			cert = getCert(token, hostname)
+			cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
 		} else {
 			log.Fatalln("Error: Login failed")
 		}
@@ -82,12 +109,6 @@ var clientTlsCmd = &cobra.Command{
 
 		// If user didnt set port using --port, then get it from jwt token
 		if port == 0 {
-			jwt_token, err := jwt.Parse(token, nil)
-			if jwt_token == nil {
-				log.Fatalf("couldn't parse token: %v", err.Error())
-			}
-
-			claims := jwt_token.Claims.(jwt.MapClaims)
 			if _, ok := claims["socket_port"]; ok {
 			} else {
 				log.Fatalf("Can't find claim for socket_port")
@@ -199,8 +220,27 @@ func openBrowser(url string) bool {
 	return cmd.Start() == nil
 }
 
-func getCert(token string, hostname string) *CertificateReponse {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/mtls-ca/socket/%s/cert", mysocket_api_url, hostname), nil)
+func getCert(token string, socketDNS string, email string) *CertificateReponse {
+	// generate key
+        keyBytes,_ := rsa.GenerateKey(rand.Reader, 2048)
+
+	// generate csr
+	template := x509.CertificateRequest{
+			Subject: pkix.Name{
+				CommonName: email,
+				Organization: []string{socketDNS},
+			},
+			EmailAddresses: []string{email},
+			DNSNames: []string{socketDNS},
+	}
+	csrBytes, _ := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
+	csrPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
+	privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(keyBytes)})
+
+	// sign cert request
+        jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
+        body := bytes.NewBuffer(jv)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", mysocket_api_url, socketDNS), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -226,6 +266,7 @@ func getCert(token string, hostname string) *CertificateReponse {
 		log.Fatalln("Error: Failed to decode certificate")
 	}
 
+	cert.PrivateKey = string(privateKey)
 	return cert
 }
 
@@ -235,5 +276,4 @@ func init() {
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientTlsCmd.MarkFlagRequired("host")
-	//clientTlsCmd.MarkFlagRequired("port")
 }

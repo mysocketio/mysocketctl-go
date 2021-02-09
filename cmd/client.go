@@ -16,26 +16,31 @@ limitations under the License.
 package cmd
 
 import (
-        "bytes"
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
-        "crypto/rsa"
-        "crypto/rand"
-        "crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/context"
 )
 
@@ -50,9 +55,17 @@ type CertificateSigningRequest struct {
 	Csr string `json:"csr"`
 }
 
-type CertificateReponse struct {
+type CertificateResponse struct {
 	PrivateKey  string `json:"client_private_key,omitempty"`
 	Certificate string `json:"client_certificate,omitempty"`
+}
+
+type SshSignRequest struct {
+	SshPublicKey string `json:"ssh_public_key"`
+}
+
+type SshSignResponse struct {
+	SshCertSigned string `json:"signed_ssh_cert"`
 }
 
 // clientCmd represents the client command
@@ -95,7 +108,7 @@ var clientTlsCmd = &cobra.Command{
 			log.Fatalf("Can't find claim for socket_dns")
 		}
 
-		var cert *CertificateReponse
+		var cert *CertificateResponse
 		if token != "" {
 			cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
 		} else {
@@ -105,6 +118,22 @@ var clientTlsCmd = &cobra.Command{
 		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
 		if err != nil {
 			log.Fatalf("Error: unable to load certificate: %s", err)
+		}
+
+		if createsshkey {
+			var key *SshSignResponse
+			key = genSshKey(token, claims["socket_dns"].(string))
+
+			// write public key
+			home, err := os.UserHomeDir()
+			if err != nil {
+				log.Fatalf("Error: failed to write ssh key: %v", err)
+			}
+
+			err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s-cert.pub", home, claims["socket_dns"].(string)), []byte(key.SshCertSigned), 0600)
+			if err != nil {
+				log.Fatalf("Error: failed to write ssh key: %v", err)
+			}
 		}
 
 		// If user didnt set port using --port, then get it from jwt token
@@ -220,26 +249,26 @@ func openBrowser(url string) bool {
 	return cmd.Start() == nil
 }
 
-func getCert(token string, socketDNS string, email string) *CertificateReponse {
+func getCert(token string, socketDNS string, email string) *CertificateResponse {
 	// generate key
-        keyBytes,_ := rsa.GenerateKey(rand.Reader, 2048)
+	keyBytes, _ := rsa.GenerateKey(rand.Reader, 2048)
 
 	// generate csr
 	template := x509.CertificateRequest{
-			Subject: pkix.Name{
-				CommonName: email,
-				Organization: []string{socketDNS},
-			},
-			EmailAddresses: []string{email},
-			DNSNames: []string{socketDNS},
+		Subject: pkix.Name{
+			CommonName:   email,
+			Organization: []string{socketDNS},
+		},
+		EmailAddresses: []string{email},
+		DNSNames:       []string{socketDNS},
 	}
 	csrBytes, _ := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
 	csrPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
 	privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(keyBytes)})
 
 	// sign cert request
-        jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
-        body := bytes.NewBuffer(jv)
+	jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
+	body := bytes.NewBuffer(jv)
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", mysocket_api_url, socketDNS), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
@@ -260,7 +289,7 @@ func getCert(token string, socketDNS string, email string) *CertificateReponse {
 		log.Fatalln("Error: Failed to get cert")
 	}
 
-	cert := &CertificateReponse{}
+	cert := &CertificateResponse{}
 	err = json.NewDecoder(resp.Body).Decode(cert)
 	if err != nil {
 		log.Fatalln("Error: Failed to decode certificate")
@@ -270,10 +299,75 @@ func getCert(token string, socketDNS string, email string) *CertificateReponse {
 	return cert
 }
 
+func genSshKey(token string, socketDNS string) *SshSignResponse {
+	// create ssh key
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		log.Fatalf("Error: failed to create ssh key: %v", err)
+	}
+
+	parsed, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		log.Fatalf("Error: failed to create ssh key: %v", err)
+	}
+
+	// write key
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("Error: failed to write ssh key: %v", err)
+	}
+
+	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
+	err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s.key", home, socketDNS), keyPem, 0600)
+	if err != nil {
+		log.Fatalf("Error: failed to write ssh key: %v", err)
+	}
+
+	// create public key
+	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		log.Fatalf("Error: failed to create public ssh key: %v", err)
+	}
+	data := ssh.MarshalAuthorizedKey(pub)
+
+	//post signing request
+	jv, _ := json.Marshal(SshSignRequest{SshPublicKey: strings.TrimRight(string(data), "\n")})
+	body := bytes.NewBuffer(jv)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/ssh", mysocket_api_url, socketDNS), body)
+	req.Header.Add("x-access-token", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error in request: %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		log.Fatalln("Error: No valid token, Please login")
+	}
+
+	if resp.StatusCode != 200 {
+		responseData, _ := ioutil.ReadAll(resp.Body)
+		log.Fatalf("Error: Failed to get cert: %v %v", resp.StatusCode, string(responseData))
+	}
+
+	cert := &SshSignResponse{}
+	err = json.NewDecoder(resp.Body).Decode(cert)
+	if err != nil {
+		log.Fatalln("Error: Failed to decode certificate")
+	}
+
+	return cert
+}
+
 func init() {
 	rootCmd.AddCommand(clientCmd)
 	clientCmd.AddCommand(clientTlsCmd)
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
+	clientTlsCmd.Flags().BoolVarP(&createsshkey, "createsshkey", "c", false, "Generates a signed ssh Keypair")
 	clientTlsCmd.MarkFlagRequired("host")
 }

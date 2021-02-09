@@ -41,6 +41,7 @@ var (
 	cloudauth           bool
 	cloudauth_addresses string
 	cloudauth_domains   string
+	createsshkey        bool
 )
 
 // rootCmd represents the base command when called without any subcommands

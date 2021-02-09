@@ -19,8 +19,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 	"io"
 	"log"
 	"net"
@@ -29,6 +27,10 @@ import (
 	"os/exec"
 	"runtime"
 	"time"
+
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/spf13/cobra"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -78,6 +80,25 @@ var clientTlsCmd = &cobra.Command{
 			log.Fatalf("Error: unable to load certificate: %s", err)
 		}
 
+		// If user didnt set port using --port, then get it from jwt token
+		if port == 0 {
+			jwt_token, err := jwt.Parse(token, nil)
+			if jwt_token == nil {
+				log.Fatalf("couldn't parse token: %v", err.Error())
+			}
+
+			claims := jwt_token.Claims.(jwt.MapClaims)
+			if _, ok := claims["socket_port"]; ok {
+			} else {
+				log.Fatalf("Can't find claim for socket_port")
+			}
+			port = int(claims["socket_port"].(float64))
+
+			if port == 0 {
+				log.Fatalf("Error: Unable to get tls port from token")
+			}
+
+		}
 		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
 		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
 		if err != nil {
@@ -186,7 +207,7 @@ func getCert(token string, hostname string) *CertificateReponse {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalln("Error in request: %v", err)
+		log.Fatalf("Error in request: %v", err)
 	}
 
 	defer resp.Body.Close()
@@ -214,5 +235,5 @@ func init() {
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientTlsCmd.MarkFlagRequired("host")
-	clientTlsCmd.MarkFlagRequired("port")
+	//clientTlsCmd.MarkFlagRequired("port")
 }

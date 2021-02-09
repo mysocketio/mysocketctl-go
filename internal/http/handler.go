@@ -19,16 +19,6 @@ const (
 	download_url = "https://download.edge.mysocket.io"
 )
 
-/*
-var (
-	tokenfile = fmt.Sprintf("%s/.mysocketio_token", os.UserHomeDir())
-)
-*/
-
-type client struct {
-	token string
-}
-
 type Client struct {
 	token string
 }
@@ -91,7 +81,7 @@ func (c *Client) Request(method string, url string, target interface{}, data int
 }
 
 func Login(email, password string) error {
-	c := &client{}
+	c := &Client{}
 	form := loginForm{Email: email, Password: password}
 	buf, err := json.Marshal(form)
 	if err != nil {

@@ -34,6 +34,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -74,6 +75,57 @@ var clientCmd = &cobra.Command{
 	Short: "Client commands",
 }
 
+// clientSshCmd represents the client tls command
+var clientSshCmd = &cobra.Command{
+	Use:   "ssh-keysign",
+	Short: "Generate a short lived ssh certificate signed by mysocket",
+	Run: func(cmd *cobra.Command, args []string) {
+		if hostname == "" {
+			log.Fatalf("error: empty hostname not allowed")
+		}
+
+		listener, err := net.Listen("tcp", "localhost:")
+		if err != nil {
+			log.Fatalln("Error: Unable to start local http listener.")
+		}
+
+		local_port := listener.Addr().(*net.TCPAddr).Port
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+		token := launch(url, listener)
+
+		jwt_token, err := jwt.Parse(token, nil)
+		if jwt_token == nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
+
+		claims := jwt_token.Claims.(jwt.MapClaims)
+		if _, ok := claims["user_email"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for user_email")
+		}
+
+		if _, ok := claims["socket_dns"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for socket_dns")
+		}
+
+		var key *SshSignResponse
+		key = genSshKey(token, claims["socket_dns"].(string))
+
+		// write public key
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Error: failed to write ssh key: %v", err)
+		}
+
+		err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s-cert.pub", home, claims["socket_dns"].(string)), []byte(key.SshCertSigned), 0600)
+		if err != nil {
+			log.Fatalf("Error: failed to write ssh key: %v", err)
+		}
+		return
+	},
+}
+
 // clientTlsCmd represents the client tls command
 var clientTlsCmd = &cobra.Command{
 	Use:   "tls",
@@ -81,6 +133,16 @@ var clientTlsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if hostname == "" {
 			log.Fatalf("error: empty hostname not allowed")
+		}
+
+		//Check for  hostname checking in *.mysocket-dummy
+		// This may be used by ssh users
+		// if so strip that
+		substr := "(.*).mysocket-dummy$"
+		r, _ := regexp.Compile(substr)
+		match := r.FindStringSubmatch(hostname)
+		if match != nil {
+			hostname = match[1]
 		}
 
 		listener, err := net.Listen("tcp", "localhost:")
@@ -118,22 +180,6 @@ var clientTlsCmd = &cobra.Command{
 		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
 		if err != nil {
 			log.Fatalf("Error: unable to load certificate: %s", err)
-		}
-
-		if createsshkey {
-			var key *SshSignResponse
-			key = genSshKey(token, claims["socket_dns"].(string))
-
-			// write public key
-			home, err := os.UserHomeDir()
-			if err != nil {
-				log.Fatalf("Error: failed to write ssh key: %v", err)
-			}
-
-			err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s-cert.pub", home, claims["socket_dns"].(string)), []byte(key.SshCertSigned), 0600)
-			if err != nil {
-				log.Fatalf("Error: failed to write ssh key: %v", err)
-			}
 		}
 
 		// If user didnt set port using --port, then get it from jwt token
@@ -318,7 +364,7 @@ func genSshKey(token string, socketDNS string) *SshSignResponse {
 	}
 
 	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
-	err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s.key", home, socketDNS), keyPem, 0600)
+	err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s", home, socketDNS), keyPem, 0600)
 	if err != nil {
 		log.Fatalf("Error: failed to write ssh key: %v", err)
 	}
@@ -368,6 +414,9 @@ func init() {
 	clientCmd.AddCommand(clientTlsCmd)
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
-	clientTlsCmd.Flags().BoolVarP(&createsshkey, "createsshkey", "c", false, "Generates a signed ssh Keypair")
 	clientTlsCmd.MarkFlagRequired("host")
+
+	clientCmd.AddCommand(clientSshCmd)
+	clientSshCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
+	clientSshCmd.MarkFlagRequired("host")
 }

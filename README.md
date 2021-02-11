@@ -1,4 +1,4 @@
-Mysocketctl: a CLI tool for Mysocket.io ,
+Mysocketctl: a CLI tool for Mysocket.io 
 ==================================================
 This is the Go Implementation of mysocketctl
 

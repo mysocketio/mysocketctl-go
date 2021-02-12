@@ -36,6 +36,7 @@ type Socket struct {
 	CloudAuthEnabled      bool     `json:"cloud_authentication_enabled,omitempty"`
 	AllowedEmailAddresses []string `json:"cloud_authentication_email_allowed_addressses,omitempty"`
 	AllowedEmailDomains   []string `json:"cloud_authentication_email_allowed_domains,omitempty"`
+	SSHCa                 string   `json:"ssh_ca,omitempty"`
 }
 
 type Tunnel struct {

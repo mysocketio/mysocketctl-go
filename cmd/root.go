@@ -18,6 +18,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+
+	"github.com/jedib0t/go-pretty/table"
+	"github.com/mysocketio/mysocketctl-go/internal/http"
 
 	"github.com/spf13/cobra"
 )
@@ -77,4 +82,46 @@ func splitLongLines(b string, maxLength int) string {
 	}
 
 	return s
+}
+
+func print_socket(s http.Socket) string {
+
+	socket_output := ""
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Name"})
+
+	portsStr := ""
+	for _, p := range s.SocketTcpPorts {
+		i := strconv.Itoa(p)
+		if portsStr == "" {
+			portsStr = i
+		} else {
+			portsStr = portsStr + ", " + i
+		}
+	}
+
+	t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Name})
+	t.SetStyle(table.StyleLight)
+	socket_output = socket_output + fmt.Sprintf("%s\n", t.Render())
+
+	if s.ProtectedSocket {
+		tp := table.NewWriter()
+		tp.AppendHeader(table.Row{"Username", "Password"})
+		tp.AppendRow(table.Row{s.ProtectedUsername, s.ProtectedPassword})
+		tp.SetStyle(table.StyleLight)
+		socket_output = socket_output + fmt.Sprintf("\nProtected Socket:\n%s\n", tp.Render())
+	}
+
+	if s.CloudAuthEnabled {
+		tc := table.NewWriter()
+		tc.AppendHeader(table.Row{"Allowed email addresses", "Allowed email domains"})
+		tc.AppendRow(table.Row{strings.Join(s.AllowedEmailAddresses, "\n"), strings.Join(s.AllowedEmailDomains, "\n")})
+		tc.SetStyle(table.StyleLight)
+		socket_output = socket_output + fmt.Sprintf("\nCloud Authentication, login details:\n%s\n", tc.Render())
+
+		if s.SocketType == "tls" {
+			socket_output = socket_output + fmt.Sprintf("\nSSH Public CA for this Socket:\n%s\n", s.SSHCa)
+		}
+	}
+	return socket_output
 }

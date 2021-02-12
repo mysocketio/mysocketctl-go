@@ -149,39 +149,7 @@ var socketCreateCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
-
-		t := table.NewWriter()
-		t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Name"})
-
-		portsStr := ""
-		for _, p := range s.SocketTcpPorts {
-			i := strconv.Itoa(p)
-			if portsStr == "" {
-				portsStr = i
-			} else {
-				portsStr = portsStr + ", " + i
-			}
-		}
-
-		t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Name})
-		t.SetStyle(table.StyleLight)
-		fmt.Printf("%s\n", t.Render())
-
-		if s.ProtectedSocket {
-			tp := table.NewWriter()
-			tp.AppendHeader(table.Row{"Username", "Password"})
-			tp.AppendRow(table.Row{s.ProtectedUsername, s.ProtectedPassword})
-			tp.SetStyle(table.StyleLight)
-			fmt.Printf("\nProtected Socket:\n%s\n", tp.Render())
-		}
-
-		if s.CloudAuthEnabled {
-			tc := table.NewWriter()
-			tc.AppendHeader(table.Row{"Allowed email addresses", "Allowed email domains"})
-			tc.AppendRow(table.Row{strings.Join(s.AllowedEmailAddresses, "\n"), strings.Join(s.AllowedEmailDomains, "\n")})
-			tc.SetStyle(table.StyleLight)
-			fmt.Printf("\nCloud Authentication, login details:\n%s\n", tc.Render())
-		}
+		fmt.Print(print_socket(s))
 	},
 }
 
@@ -208,11 +176,34 @@ var socketDeleteCmd = &cobra.Command{
 	},
 }
 
+// socketShowCmd represents the socket delete command
+var socketShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show socket details",
+	Run: func(cmd *cobra.Command, args []string) {
+		if socketID == "" {
+			log.Fatalf("error: invalid socketid")
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		socket := http.Socket{}
+		err = client.Request("GET", "socket/"+socketID, &socket, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+		fmt.Print(print_socket(socket))
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(socketCmd)
 	socketCmd.AddCommand(socketsListCmd)
 	socketCmd.AddCommand(socketCreateCmd)
 	socketCmd.AddCommand(socketDeleteCmd)
+	socketCmd.AddCommand(socketShowCmd)
 
 	socketCreateCmd.Flags().StringVarP(&name, "name", "n", "", "Socket name")
 	socketCreateCmd.Flags().BoolVarP(&protected, "protected", "p", false, "Protected, default no")
@@ -226,4 +217,7 @@ func init() {
 
 	socketDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	socketDeleteCmd.MarkFlagRequired("socket_id")
+
+	socketShowCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
+	socketShowCmd.MarkFlagRequired("socket_id")
 }

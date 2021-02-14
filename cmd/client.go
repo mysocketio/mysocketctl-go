@@ -122,6 +122,25 @@ var clientSshCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error: failed to write ssh key: %v", err)
 		}
+
+		// Also write token, for future use
+		tokenfile := mtls_tokenfile(hostname)
+		f, _ := os.Create(tokenfile)
+
+		if err != nil {
+			log.Fatalf("Error: failed to create token: %v", err)
+		}
+
+		if err := os.Chmod(tokenfile, 0600); err != nil {
+			log.Fatalf("Error: failed to write token: %v", err)
+		}
+
+		defer f.Close()
+		_, err = f.WriteString(fmt.Sprintf("%s\n", token))
+		if err != nil {
+			log.Fatalf("Error: failed to write token: %v", err)
+		}
+
 		return
 	},
 }
@@ -145,16 +164,44 @@ var clientTlsCmd = &cobra.Command{
 			hostname = match[1]
 		}
 
-		listener, err := net.Listen("tcp", "localhost:")
-		if err != nil {
-			log.Fatalln("Error: Unable to start local http listener.")
+		// Check if we already have a valid token
+		token_content := ""
+
+		tokenfile := mtls_tokenfile(hostname)
+		if _, err := os.Stat(tokenfile); os.IsNotExist(err) {
+			// Does not exist
+		} else {
+			// read token from file
+			content, _ := ioutil.ReadFile(tokenfile)
+			if err == nil {
+				tokenString := strings.TrimRight(string(content), "\n")
+				tmp_jwt_token, _ := jwt.Parse(tokenString, nil)
+				if tmp_jwt_token != nil {
+
+					claims := tmp_jwt_token.Claims.(jwt.MapClaims)
+					exp := int64(claims["exp"].(float64))
+					//  subtract 10secs from token, for expected work time
+					//  If token time is larger then current time we're good
+					if exp-10 > time.Now().Unix() {
+						token_content = tokenString
+					}
+				}
+			}
 		}
 
-		local_port := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
-		token := launch(url, listener)
+		if token_content == "" {
 
-		jwt_token, err := jwt.Parse(token, nil)
+			listener, err := net.Listen("tcp", "localhost:")
+			if err != nil {
+				log.Fatalln("Error: Unable to start local http listener.")
+			}
+
+			local_port := listener.Addr().(*net.TCPAddr).Port
+			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+			token_content = launch(url, listener)
+		}
+
+		jwt_token, err := jwt.Parse(token_content, nil)
 		if jwt_token == nil {
 			log.Fatalf("couldn't parse token: %v", err.Error())
 		}
@@ -171,8 +218,8 @@ var clientTlsCmd = &cobra.Command{
 		}
 
 		var cert *CertificateResponse
-		if token != "" {
-			cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
+		if token_content != "" {
+			cert = getCert(token_content, claims["socket_dns"].(string), claims["user_email"].(string))
 		} else {
 			log.Fatalln("Error: Login failed")
 		}
@@ -206,6 +253,15 @@ var clientTlsCmd = &cobra.Command{
 	},
 }
 
+func mtls_tokenfile(dnsname string) string {
+	tokenfile := ""
+	if runtime.GOOS == "windows" {
+		tokenfile = fmt.Sprintf("%s/.mysocketio_token_%s", os.Getenv("APPDATA"), dnsname)
+	} else {
+		tokenfile = fmt.Sprintf("%s/.mysocketio_token_%s", os.Getenv("HOME"), dnsname)
+	}
+	return tokenfile
+}
 func tcp_con_handle(con net.Conn) {
 	chan_to_stdout := stream_copy(con, os.Stdout)
 	chan_to_remote := stream_copy(os.Stdin, con)

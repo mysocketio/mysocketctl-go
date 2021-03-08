@@ -36,12 +36,14 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new account",
 	Run: func(cmd *cobra.Command, args []string) {
-		if _, err := os.Stat(sshkey); err == nil {
-			dat, err := ioutil.ReadFile(sshkey)
-			if err != nil {
-				log.Fatalf("Unable to read the file %s, please check file permissions and try again (%v)", sshkey, err)
+		if sshkey != "" {
+			if _, err := os.Stat(sshkey); err == nil {
+				dat, err := ioutil.ReadFile(sshkey)
+				if err != nil {
+					log.Fatalf("Unable to read the file %s, please check file permissions and try again (%v)", sshkey, err)
+				}
+				sshkey = string(dat)
 			}
-			sshkey = string(dat)
 		}
 
 		err := http.Register(name, email, password, sshkey)
@@ -95,7 +97,7 @@ func init() {
 	createCmd.MarkFlagRequired("email")
 	createCmd.MarkFlagRequired("name")
 	createCmd.MarkFlagRequired("password")
-	createCmd.MarkFlagRequired("sshkey")
+	createCmd.Flags().MarkHidden("sshkey")
 
 	accountCmd.AddCommand(createCmd)
 	accountCmd.AddCommand(showCmd)

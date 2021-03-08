@@ -44,3 +44,8 @@ type Tunnel struct {
 	LocalPort    int    `json:"local_port,omitempty"`
 	TunnelServer string `json:"tunnel_server,omitempty"`
 }
+
+type SshCsr struct {
+	SSHPublicKey  string `json:"ssh_public_key"`
+	SSHSignedCert string `json:"signed_ssh_cert,omitempty"`
+}

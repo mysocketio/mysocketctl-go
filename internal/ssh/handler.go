@@ -7,7 +7,14 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
+
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"golang.org/x/crypto/ssh"
@@ -23,6 +30,107 @@ var (
 	defaultKeyFiles = []string{"id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"}
 )
 
+func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) {
+
+	// First check if we already have a mysocket key pair
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("Error: failed to get home dir: %v", err)
+	}
+
+	privateKeyFile := home + "/.mysocket"
+	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
+		err := os.Mkdir(privateKeyFile, 0700)
+		if err != nil {
+			log.Fatalf("Error: could not create directory: %v", err)
+		}
+	}
+
+	privateKeyFile = home + "/.mysocket/user_" + userId
+
+	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
+		// Let's create a key pair
+		//log.Println("create key for " + userId)
+
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			log.Fatalf("Error: failed to create ssh key: %v", err)
+		}
+
+		parsed, err := x509.MarshalECPrivateKey(key)
+		if err != nil {
+			log.Fatalf("Error: failed to create ssh key: %v", err)
+		}
+
+		keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
+		err = ioutil.WriteFile(fmt.Sprintf("%s", privateKeyFile), keyPem, 0600)
+		if err != nil {
+			log.Fatalf("Error: failed to write ssh key: %v", err)
+		}
+	}
+	// Ok now let's load the key
+
+	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
+		log.Fatalf("Error: failed to load private ssh key: %v", err)
+	}
+	// read private key from file
+	keyContent, _ := ioutil.ReadFile(privateKeyFile)
+	if err != nil {
+		log.Fatalf("Error: failed to load private ssh key: %v", err)
+	}
+
+	block, _ := pem.Decode(keyContent)
+	if block == nil {
+		log.Fatal("failed to decode PEM block containing public key")
+	}
+
+	//pkey, err := ssh.ParsePrivateKey(keyContent)
+	pkey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		log.Fatal("Error: failed to parse private ssh key")
+	}
+
+	// create public key
+	pub, err := ssh.NewPublicKey(&pkey.PublicKey)
+	if err != nil {
+		log.Fatalf("Error: failed to create public ssh key: %v", err)
+	}
+	data := ssh.MarshalAuthorizedKey(pub)
+
+	//post signing request
+	signedCert := http.SshCsr{}
+	newCsr := &http.SshCsr{
+		SSHPublicKey: strings.TrimRight(string(data), "\n"),
+	}
+	//log.Println(newCsr)
+	client, err := http.NewClient()
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Error: %v", err))
+	}
+
+	certData := []byte(signedCert.SSHSignedCert)
+	pubcert, _, _, _, err := ssh.ParseAuthorizedKey(certData)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	cert, ok := pubcert.(*ssh.Certificate)
+	if !ok {
+		log.Fatalf("Error failed to cast to certificate: %v", err)
+	}
+	//log.Println(cert.ValidPrincipals[0])
+	clientKey, err := ssh.ParsePrivateKey(keyContent)
+	certSigner, err := ssh.NewCertSigner(cert, clientKey)
+	if err != nil {
+		log.Fatalf("NewCertSigner: %v", err)
+	}
+	return certSigner
+}
+
 func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string) error {
 	tunnel, err := http.GetTunnel(socketID, tunnelID)
 
@@ -37,6 +145,13 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 	}
 	var keyFiles []string
 	var signers []ssh.Signer
+
+	// Let's fetch a short lived signed cert from api.mysocket.io
+	// We'll use that to authenticate. This returns a signer object.
+	// for now we'll just add it to the signers list.
+	// In future, this is the only auth method we should use.
+	ssh_cert := getSshCert(userID, socketID, tunnelID)
+	signers = append(signers, ssh_cert)
 
 	if identityFile != "" {
 		f := []string{identityFile}

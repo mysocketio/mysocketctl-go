@@ -108,9 +108,20 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("Error: %v", err))
+	//err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
+
+	for i := 1; i <= 10; i++ {
+		err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
+		if err == nil {
+			break
+		}
+		log.Println(fmt.Sprintf("Unable to get signed cert from API, will try again in %d seconds. Attempt %d of 10", 2*i, i))
+
+		d := time.Duration(2*i) * time.Second
+		time.Sleep(d)
+	}
+	if signedCert.SSHSignedCert == "" {
+		log.Fatalf("Error: Unable to get signed key from Server")
 	}
 
 	certData := []byte(signedCert.SSHSignedCert)

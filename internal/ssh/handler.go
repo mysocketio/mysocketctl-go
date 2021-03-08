@@ -146,13 +146,6 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 	var keyFiles []string
 	var signers []ssh.Signer
 
-	// Let's fetch a short lived signed cert from api.mysocket.io
-	// We'll use that to authenticate. This returns a signer object.
-	// for now we'll just add it to the signers list.
-	// In future, this is the only auth method we should use.
-	ssh_cert := getSshCert(userID, socketID, tunnelID)
-	signers = append(signers, ssh_cert)
-
 	if identityFile != "" {
 		f := []string{identityFile}
 		if auth, err := authWithPrivateKeys(f, true); err == nil {
@@ -178,11 +171,21 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		signers = append(signers, auth...)
 	}
 
-	if signers != nil {
-		sshConfig.Auth = append(sshConfig.Auth, ssh.PublicKeys(signers...))
-	}
-
 	for {
+		// Let's fetch a short lived signed cert from api.mysocket.io
+		// We'll use that to authenticate. This returns a signer object.
+		// for now we'll just add it to the signers list.
+		// In future, this is the only auth method we should use.
+		sshCert := getSshCert(userID, socketID, tunnelID)
+		// If we got a cert, we use that for auth method. Otherwise use static keys
+		if sshCert != nil {
+			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(sshCert)}
+		} else if signers != nil {
+			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signers...)}
+		} else {
+			log.Fatal("No ssh keys found for authenticating..")
+		}
+
 		fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
 		time.Sleep(1 * time.Second)
 		serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)

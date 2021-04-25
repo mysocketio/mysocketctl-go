@@ -72,7 +72,7 @@ var upgradeVersionCmd = &cobra.Command{
 			return
 		}
 
-		checksum, latest, err := http.GetLatestBinary(runtime.GOOS)
+		checksum, latest, err := http.GetLatestBinary(runtime.GOOS, runtime.GOARCH)
 		if latest == nil {
 			log.Fatalf("Error while downloading latest version %v", err)
 		}

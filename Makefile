@@ -33,6 +33,11 @@ release:
 	python3 ./s3upload.py ./bin/mysocketctl_linux_arm64-sha256-checksum.txt ${BUCKET} linux_arm64/sha256-checksum.txt
 	python3 ./s3upload.py ./bin/mysocketctl_linux_arm64 ${BUCKET} linux_arm64/mysocketctl
 
+	#This is for Raspberrypi 32bit
+	shasum -a 256 ./bin/mysocketctl_linux_arm | awk '{print $$1}' > ./bin/mysocketctl_linux_arm-sha256-checksum.txt
+	python3 ./s3upload.py ./bin/mysocketctl_linux_arm-sha256-checksum.txt ${BUCKET} linux_arm/sha256-checksum.txt
+	python3 ./s3upload.py ./bin/mysocketctl_linux_arm ${BUCKET} linux_arm/mysocketctl
+
 	shasum -a 256 ./bin/mysocketctl_windows_amd64 | awk '{print $$1}' > ./bin/mysocketctl_windows_amd64-sha256-checksum.txt
 	python3 ./s3upload.py ./bin/mysocketctl_windows_amd64-sha256-checksum.txt ${BUCKET} windows_amd64/sha256-checksum.txt
 	python3 ./s3upload.py ./bin/mysocketctl_windows_amd64 ${BUCKET} windows_amd64/mysocketctl.exe

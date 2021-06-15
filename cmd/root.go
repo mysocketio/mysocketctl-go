@@ -119,7 +119,7 @@ func print_socket(s http.Socket) string {
 		tc.SetStyle(table.StyleLight)
 		socket_output = socket_output + fmt.Sprintf("\nCloud Authentication, login details:\n%s\n", tc.Render())
 
-		if s.SocketType == "tls" {
+		if s.SocketType == "tls" || s.SocketType == "ssh" {
 			socket_output = socket_output + fmt.Sprintf("\nSSH Public CA for this Socket:\n%s\n", s.SSHCa)
 		}
 	}

@@ -125,8 +125,15 @@ var socketCreateCmd = &cobra.Command{
 		}
 
 		socketType := strings.ToLower(socketType)
-		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" {
-			log.Fatalf("error: --type should be either http, https, tcp or tls")
+		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" {
+			log.Fatalf("error: --type should be either http, https, ssh, tcp or tls")
+		}
+
+		if socketType == "ssh" {
+			if cloudauth == false {
+				log.Println("Cloud Authentication required for ssh sockets")
+				os.Exit(1)
+			}
 		}
 
 		client, err := http.NewClient()
@@ -212,7 +219,7 @@ func init() {
 	socketCreateCmd.Flags().BoolVarP(&cloudauth, "cloudauth", "c", false, "Enable oauth/oidc authentication")
 	socketCreateCmd.Flags().StringVarP(&cloudauth_addresses, "allowed_email_addresses", "e", "", "Comma seperated list of allowed Email addresses when using cloudauth")
 	socketCreateCmd.Flags().StringVarP(&cloudauth_domains, "allowed_email_domains", "d", "", "comma seperated list of allowed Email domain (i.e. 'example.com', when using cloudauth")
-	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type, defaults to http")
+	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls")
 	socketCreateCmd.MarkFlagRequired("name")
 
 	socketDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")

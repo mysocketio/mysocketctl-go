@@ -78,8 +78,14 @@ var connectCmd = &cobra.Command{
 		}
 
 		socketType := strings.ToLower(socketType)
-		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" {
-			log.Fatalf("error: --type should be either http, https, tcp or tls")
+		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" {
+			log.Fatalf("error: --type should be either http, https, tcp, ssh or tls")
+		}
+		if socketType == "ssh" {
+			if cloudauth == false {
+				log.Println("Cloud Authentication required for ssh sockets")
+				os.Exit(1)
+			}
 		}
 
 		connection := &http.Socket{
@@ -145,7 +151,7 @@ func init() {
 	connectCmd.Flags().BoolVarP(&protected, "protected", "", false, "Protected, default no")
 	connectCmd.Flags().StringVarP(&username, "username", "u", "", "Username, required when protected set to true")
 	connectCmd.Flags().StringVarP(&password, "password", "", "", "Password, required when protected set to true")
-	connectCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, tcp, tls")
+	connectCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls")
 	connectCmd.Flags().StringVarP(&identityFile, "identity_file", "i", "", "Identity File")
 	connectCmd.Flags().BoolVarP(&cloudauth, "cloudauth", "c", false, "Enable oauth/oidc authentication")
 	connectCmd.Flags().StringVarP(&cloudauth_addresses, "allowed_email_addresses", "e", "", "Comma seperated list of allowed Email addresses when using cloudauth")

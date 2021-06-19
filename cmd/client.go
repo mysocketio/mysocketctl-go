@@ -16,10 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-        "syscall"
-        "github.com/docker/docker/pkg/term"
-        "encoding/binary"
-	"os/signal"
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -28,9 +24,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/docker/docker/pkg/term"
 	"io"
 	"io/ioutil"
 	"log"
@@ -38,9 +36,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -81,67 +81,67 @@ var clientCmd = &cobra.Command{
 
 // clientSshCmd represents the client ssh keysign command
 var clientSshCmd = &cobra.Command{
-        Use:   "ssh",
-        Short: "Connect to a mysocket ssh service",
-        Run: func(cmd *cobra.Command, args []string) {
-                if hostname == "" {
-                        log.Fatalf("error: empty hostname not allowed")
-                }
+	Use:   "ssh",
+	Short: "Connect to a mysocket ssh service",
+	Run: func(cmd *cobra.Command, args []string) {
+		if hostname == "" {
+			log.Fatalf("error: empty hostname not allowed")
+		}
 
-                listener, err := net.Listen("tcp", "localhost:")
-                if err != nil {
-                        log.Fatalln("Error: Unable to start local http listener.")
-                }
+		listener, err := net.Listen("tcp", "localhost:")
+		if err != nil {
+			log.Fatalln("Error: Unable to start local http listener.")
+		}
 
-                local_port := listener.Addr().(*net.TCPAddr).Port
-                url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
-                token := launch(url, listener)
+		local_port := listener.Addr().(*net.TCPAddr).Port
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+		token := launch(url, listener)
 
-                jwt_token, err := jwt.Parse(token, nil)
-                if jwt_token == nil {
-                        log.Fatalf("couldn't parse token: %v", err.Error())
-                }
+		jwt_token, err := jwt.Parse(token, nil)
+		if jwt_token == nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
 
-                claims := jwt_token.Claims.(jwt.MapClaims)
-                if _, ok := claims["user_email"]; ok {
-                } else {
-                        log.Fatalf("Can't find claim for user_email")
-                }
+		claims := jwt_token.Claims.(jwt.MapClaims)
+		if _, ok := claims["user_email"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for user_email")
+		}
 
-                if _, ok := claims["socket_dns"]; ok {
-                } else {
-                        log.Fatalf("Can't find claim for socket_dns")
-                }
+		if _, ok := claims["socket_dns"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for socket_dns")
+		}
 
-                var sshCert *SshSignResponse
-                sshCert = genSshKey(token, claims["socket_dns"].(string))
+		var sshCert *SshSignResponse
+		sshCert = genSshKey(token, claims["socket_dns"].(string))
 
-                var cert *CertificateResponse
-                cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
+		var cert *CertificateResponse
+		cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
 
-                certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
-                if err != nil {
-                        log.Fatalf("Error: unable to load certificate: %s", err)
-                }
+		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
+		if err != nil {
+			log.Fatalf("Error: unable to load certificate: %s", err)
+		}
 
-                // If user didnt set port using --port, then get it from jwt token
-                if port == 0 {
-                        if _, ok := claims["socket_port"]; ok {
-                        } else {
-                                log.Fatalf("Can't find claim for socket_port")
-                        }
-                        port = int(claims["socket_port"].(float64))
+		// If user didnt set port using --port, then get it from jwt token
+		if port == 0 {
+			if _, ok := claims["socket_port"]; ok {
+			} else {
+				log.Fatalf("Can't find claim for socket_port")
+			}
+			port = int(claims["socket_port"].(float64))
 
-                        if port == 0 {
-                                log.Fatalf("Error: Unable to get tls port from token")
-                        }
+			if port == 0 {
+				log.Fatalf("Error: Unable to get tls port from token")
+			}
 
-                }
-                config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
-                conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
-                if err != nil {
-                        log.Fatalf("failed to connect to %s:%d: %v", hostname, port, err.Error())
-                }
+		}
+		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
+		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
+		if err != nil {
+			log.Fatalf("failed to connect to %s:%d: %v", hostname, port, err.Error())
+		}
 
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -150,49 +150,49 @@ var clientSshCmd = &cobra.Command{
 
 		buffer, err := ioutil.ReadFile(fmt.Sprintf("%s/.ssh/%s", home, hostname))
 		if err != nil {
-                        log.Fatalf("Error: %s", err)
+			log.Fatalf("Error: %s", err)
 		}
 
 		k, err := ssh.ParsePrivateKey(buffer)
 		if err != nil {
-                        log.Fatalf("Error: %s", err)
+			log.Fatalf("Error: %s", err)
 		}
 
 		certData := []byte(sshCert.SshCertSigned)
 		pubcert, _, _, _, err := ssh.ParseAuthorizedKey(certData)
 		if err != nil {
-		        log.Fatalf("Error: %v", err)
+			log.Fatalf("Error: %v", err)
 		}
 		cert1, ok := pubcert.(*ssh.Certificate)
 
 		if !ok {
-		        log.Fatalf("Error failed to cast to certificate: %v", err)
+			log.Fatalf("Error failed to cast to certificate: %v", err)
 		}
 
 		certSigner, err := ssh.NewCertSigner(cert1, k)
 		if err != nil {
-		        log.Fatalf("NewCertSigner: %v", err)
+			log.Fatalf("NewCertSigner: %v", err)
 		}
 
-	        sshConfig := &ssh.ClientConfig{
-	                User:            "user",
-	                HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	                Timeout:         10 * time.Second,
-			Auth: []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
+		sshConfig := &ssh.ClientConfig{
+			User:            "user",
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         10 * time.Second,
+			Auth:            []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
 		}
 
-                fmt.Printf("\nConnecting to Server: %s:%d\n", hostname, port)
+		fmt.Printf("\nConnecting to Server: %s:%d\n", hostname, port)
 		serverConn, chans, reqs, err := ssh.NewClientConn(conn, hostname, sshConfig)
-                if err != nil {
-                        log.Fatalf("Dial INTO remote server error: %s %+v", err,  conn.ConnectionState())
-                }
-                defer serverConn.Close()
+		if err != nil {
+			log.Fatalf("Dial INTO remote server error: %s %+v", err, conn.ConnectionState())
+		}
+		defer serverConn.Close()
 
 		client := ssh.NewClient(serverConn, chans, reqs)
 
 		session, err := client.NewSession()
 		if err != nil {
-		        panic("Failed to create session: " + err.Error())
+			panic("Failed to create session: " + err.Error())
 		}
 		defer session.Close()
 
@@ -228,12 +228,11 @@ var clientSshCmd = &cobra.Command{
 			term = "xterm-256color"
 		}
 
-
 		if err := session.RequestPty(term, termHeight, termWidth, modes); err != nil {
 			log.Fatalf("session xterm: %s", err)
 		}
 
-		go func () {
+		go func() {
 			sigs := make(chan os.Signal, 1)
 			signal.Notify(sigs, syscall.SIGWINCH)
 			defer signal.Stop(sigs)
@@ -261,7 +260,7 @@ var clientSshCmd = &cobra.Command{
 			log.Fatalf("ssh: %s", err)
 		}
 
-        },
+	},
 }
 
 // clientSshKeySignCmd represents the client ssh keysign command

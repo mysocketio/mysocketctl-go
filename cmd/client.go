@@ -36,11 +36,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"regexp"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -175,7 +173,7 @@ var clientSshCmd = &cobra.Command{
 		}
 
 		sshConfig := &ssh.ClientConfig{
-			User:            "user",
+			User:            "testuser",
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 			Timeout:         10 * time.Second,
 			Auth:            []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
@@ -232,15 +230,18 @@ var clientSshCmd = &cobra.Command{
 			log.Fatalf("session xterm: %s", err)
 		}
 
-		go func() {
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGWINCH)
-			defer signal.Stop(sigs)
-			// resize the tty if any signals received
-			for range sigs {
-				session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
-			}
-		}()
+		/*
+		        go func() {
+					sigs := make(chan os.Signal, 1)
+					signal.Notify(sigs, syscall.SIGWINCH)
+					defer signal.Stop(sigs)
+					// resize the tty if any signals received
+					for range sigs {
+						session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
+					}
+				}()
+		*/
+		go monWinCh(session, os.Stdout.Fd())
 
 		session.Stdout = os.Stdout
 		session.Stderr = os.Stderr

@@ -24,9 +24,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/docker/docker/pkg/term"
 	"io"
 	"io/ioutil"
 	"log"
@@ -34,9 +36,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -75,8 +79,192 @@ var clientCmd = &cobra.Command{
 	Short: "Client commands",
 }
 
-// clientSshCmd represents the client tls command
+// clientSshCmd represents the client ssh keysign command
 var clientSshCmd = &cobra.Command{
+	Use:   "ssh",
+	Short: "Connect to a mysocket ssh service",
+	Run: func(cmd *cobra.Command, args []string) {
+		if hostname == "" {
+			log.Fatalf("error: empty hostname not allowed")
+		}
+
+		listener, err := net.Listen("tcp", "localhost:")
+		if err != nil {
+			log.Fatalln("Error: Unable to start local http listener.")
+		}
+
+		local_port := listener.Addr().(*net.TCPAddr).Port
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+		token := launch(url, listener)
+
+		jwt_token, err := jwt.Parse(token, nil)
+		if jwt_token == nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
+
+		claims := jwt_token.Claims.(jwt.MapClaims)
+		if _, ok := claims["user_email"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for user_email")
+		}
+
+		if _, ok := claims["socket_dns"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for socket_dns")
+		}
+
+		var sshCert *SshSignResponse
+		sshCert = genSshKey(token, claims["socket_dns"].(string))
+
+		var cert *CertificateResponse
+		cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
+
+		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
+		if err != nil {
+			log.Fatalf("Error: unable to load certificate: %s", err)
+		}
+
+		// If user didnt set port using --port, then get it from jwt token
+		if port == 0 {
+			if _, ok := claims["socket_port"]; ok {
+			} else {
+				log.Fatalf("Can't find claim for socket_port")
+			}
+			port = int(claims["socket_port"].(float64))
+
+			if port == 0 {
+				log.Fatalf("Error: Unable to get tls port from token")
+			}
+
+		}
+		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
+		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
+		if err != nil {
+			log.Fatalf("failed to connect to %s:%d: %v", hostname, port, err.Error())
+		}
+
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Error: failed to write ssh key: %v", err)
+		}
+
+		buffer, err := ioutil.ReadFile(fmt.Sprintf("%s/.ssh/%s", home, hostname))
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
+
+		k, err := ssh.ParsePrivateKey(buffer)
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
+
+		certData := []byte(sshCert.SshCertSigned)
+		pubcert, _, _, _, err := ssh.ParseAuthorizedKey(certData)
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+		cert1, ok := pubcert.(*ssh.Certificate)
+
+		if !ok {
+			log.Fatalf("Error failed to cast to certificate: %v", err)
+		}
+
+		certSigner, err := ssh.NewCertSigner(cert1, k)
+		if err != nil {
+			log.Fatalf("NewCertSigner: %v", err)
+		}
+
+		sshConfig := &ssh.ClientConfig{
+			User:            "user",
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         10 * time.Second,
+			Auth:            []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
+		}
+
+		fmt.Printf("\nConnecting to Server: %s:%d\n", hostname, port)
+		serverConn, chans, reqs, err := ssh.NewClientConn(conn, hostname, sshConfig)
+		if err != nil {
+			log.Fatalf("Dial INTO remote server error: %s %+v", err, conn.ConnectionState())
+		}
+		defer serverConn.Close()
+
+		client := ssh.NewClient(serverConn, chans, reqs)
+
+		session, err := client.NewSession()
+		if err != nil {
+			panic("Failed to create session: " + err.Error())
+		}
+		defer session.Close()
+
+		fd := os.Stdin.Fd()
+
+		var (
+			termWidth, termHeight = 80, 24
+		)
+
+		if term.IsTerminal(fd) {
+			oldState, err := term.MakeRaw(fd)
+			if err != nil {
+				log.Fatalf("%s", err)
+			}
+
+			defer term.RestoreTerminal(fd, oldState)
+
+			winsize, err := term.GetWinsize(fd)
+			if err == nil {
+				termWidth = int(winsize.Width)
+				termHeight = int(winsize.Height)
+			}
+		}
+
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          1,
+			ssh.TTY_OP_ISPEED: 14400,
+			ssh.TTY_OP_OSPEED: 14400,
+		}
+
+		term := os.Getenv("TERM")
+		if term == "" {
+			term = "xterm-256color"
+		}
+
+		if err := session.RequestPty(term, termHeight, termWidth, modes); err != nil {
+			log.Fatalf("session xterm: %s", err)
+		}
+
+		go func() {
+			sigs := make(chan os.Signal, 1)
+			signal.Notify(sigs, syscall.SIGWINCH)
+			defer signal.Stop(sigs)
+			// resize the tty if any signals received
+			for range sigs {
+				session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
+			}
+		}()
+
+		session.Stdout = os.Stdout
+		session.Stderr = os.Stderr
+		session.Stdin = os.Stdin
+
+		if err := session.Shell(); err != nil {
+			log.Fatalf("session shell: %s", err)
+		}
+
+		if err := session.Wait(); err != nil {
+			if e, ok := err.(*ssh.ExitError); ok {
+				switch e.ExitStatus() {
+				case 130:
+					os.Exit(0)
+				}
+			}
+			log.Fatalf("ssh: %s", err)
+		}
+
+	},
+}
+
+// clientSshKeySignCmd represents the client ssh keysign command
+var clientSshKeySignCmd = &cobra.Command{
 	Use:   "ssh-keysign",
 	Short: "Generate a short lived ssh certificate signed by mysocket",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -472,7 +660,29 @@ func init() {
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientTlsCmd.MarkFlagRequired("host")
 
+	clientCmd.AddCommand(clientSshKeySignCmd)
+	clientSshKeySignCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
+	clientSshKeySignCmd.MarkFlagRequired("host")
+
 	clientCmd.AddCommand(clientSshCmd)
-	clientSshCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
+	clientSshCmd.Flags().StringVarP(&hostname, "host", "", "", "The ssh mysocket target host")
 	clientSshCmd.MarkFlagRequired("host")
+}
+
+// termSize gets the current window size and returns it in a window-change friendly
+// format.
+func termSize(fd uintptr) []byte {
+	size := make([]byte, 16)
+
+	winsize, err := term.GetWinsize(fd)
+	if err != nil {
+		binary.BigEndian.PutUint32(size, uint32(80))
+		binary.BigEndian.PutUint32(size[4:], uint32(24))
+		return size
+	}
+
+	binary.BigEndian.PutUint32(size, uint32(winsize.Width))
+	binary.BigEndian.PutUint32(size[4:], uint32(winsize.Height))
+
+	return size
 }

@@ -86,6 +86,10 @@ var clientSshCmd = &cobra.Command{
 			log.Fatalf("error: empty hostname not allowed")
 		}
 
+		if username == "" {
+			log.Fatalf("error: empty username not allowed")
+		}
+
 		listener, err := net.Listen("tcp", "localhost:")
 		if err != nil {
 			log.Fatalln("Error: Unable to start local http listener.")
@@ -173,7 +177,7 @@ var clientSshCmd = &cobra.Command{
 		}
 
 		sshConfig := &ssh.ClientConfig{
-			User:            "testuser",
+			User:            username,
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 			Timeout:         10 * time.Second,
 			Auth:            []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
@@ -190,7 +194,7 @@ var clientSshCmd = &cobra.Command{
 
 		session, err := client.NewSession()
 		if err != nil {
-			panic("Failed to create session: " + err.Error())
+			log.Fatalf("Failed to create session: " + err.Error())
 		}
 		defer session.Close()
 
@@ -251,6 +255,7 @@ var clientSshCmd = &cobra.Command{
 			log.Fatalf("session shell: %s", err)
 		}
 
+/*
 		if err := session.Wait(); err != nil {
 			if e, ok := err.(*ssh.ExitError); ok {
 				switch e.ExitStatus() {
@@ -260,6 +265,8 @@ var clientSshCmd = &cobra.Command{
 			}
 			log.Fatalf("ssh: %s", err)
 		}
+*/
+		session.Wait()
 
 	},
 }
@@ -667,7 +674,9 @@ func init() {
 
 	clientCmd.AddCommand(clientSshCmd)
 	clientSshCmd.Flags().StringVarP(&hostname, "host", "", "", "The ssh mysocket target host")
+	clientSshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
 	clientSshCmd.MarkFlagRequired("host")
+	clientSshCmd.MarkFlagRequired("cwuserhost")
 }
 
 // termSize gets the current window size and returns it in a window-change friendly

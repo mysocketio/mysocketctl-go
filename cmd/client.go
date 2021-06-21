@@ -676,7 +676,7 @@ func init() {
 	clientSshCmd.Flags().StringVarP(&hostname, "host", "", "", "The ssh mysocket target host")
 	clientSshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
 	clientSshCmd.MarkFlagRequired("host")
-	clientSshCmd.MarkFlagRequired("cwuserhost")
+	clientSshCmd.MarkFlagRequired("username")
 }
 
 // termSize gets the current window size and returns it in a window-change friendly

@@ -28,7 +28,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/docker/docker/pkg/term"
 	"io"
 	"io/ioutil"
 	"log"
@@ -40,6 +39,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/docker/docker/pkg/term"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/spf13/cobra"
@@ -231,15 +232,15 @@ var clientSshCmd = &cobra.Command{
 		}
 
 		/*
-		        go func() {
-					sigs := make(chan os.Signal, 1)
-					signal.Notify(sigs, syscall.SIGWINCH)
-					defer signal.Stop(sigs)
-					// resize the tty if any signals received
-					for range sigs {
-						session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
-					}
-				}()
+			        go func() {
+						sigs := make(chan os.Signal, 1)
+						signal.Notify(sigs, syscall.SIGWINCH)
+						defer signal.Stop(sigs)
+						// resize the tty if any signals received
+						for range sigs {
+							session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
+						}
+					}()
 		*/
 		go monWinCh(session, os.Stdout.Fd())
 
@@ -442,6 +443,72 @@ var clientTlsCmd = &cobra.Command{
 	},
 }
 
+// clientLoginCmd represents the client login DNS command
+var clientLoginCmd = &cobra.Command{
+	Use:   "login",
+	Short: "Login and Start DNS service for Private DNS",
+	Run: func(cmd *cobra.Command, args []string) {
+		if orgId == "" {
+			log.Fatalf("error: empty orgid not allowed")
+		}
+
+		// Check if we already have a valid token
+		token_content := ""
+
+		if token_content == "" {
+
+			listener, err := net.Listen("tcp", "localhost:")
+			if err != nil {
+				log.Fatalln("Error: Unable to start local http listener.")
+			}
+
+			local_port := listener.Addr().(*net.TCPAddr).Port
+			url := fmt.Sprintf("%s/client/auth/org/%s?port=%d", mysocket_mtls_url, orgId, local_port)
+			token_content = launch(url, listener)
+		}
+
+		jwt_token, err := jwt.Parse(token_content, nil)
+		if jwt_token == nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
+
+		claims := jwt_token.Claims.(jwt.MapClaims)
+		if _, ok := claims["user_email"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for user_email")
+		}
+
+		//Now get the DNS domains request
+		client := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/dnsrecords", mysocket_api_url), nil)
+		req.Header.Add("x-access-token", token_content)
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Fatalf("couldn't request dnsrecords  %v", err.Error())
+		}
+
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 401 {
+			log.Fatalln("Error: No valid token, Please login")
+		}
+
+		if resp.StatusCode != 200 {
+			log.Fatalln("Error: Failed to get DNS records.. HTTP code not 200")
+		}
+
+		var dnsDomains []string
+		err = json.NewDecoder(resp.Body).Decode(&dnsDomains)
+		if err != nil {
+			log.Fatalf("couldn't parse dnsrecords response  %v", err.Error())
+		}
+		for _, s := range dnsDomains {
+			fmt.Println(s)
+		}
+
+	},
+}
+
 func mtls_tokenfile(dnsname string) string {
 	tokenfile := ""
 	if runtime.GOOS == "windows" {
@@ -498,12 +565,18 @@ func launch(url string, listener net.Listener) string {
 		q := url.Query()
 
 		w.Header().Set("Content-Type", "text/html")
+
 		if q.Get("token") != "" {
 			w.Header().Set("Location", mysocket_succes_url)
 			w.WriteHeader(302)
 			c <- q.Get("token")
 		} else {
-			w.Header().Set("Location", mysocket_fail_url)
+			if q.Get("error") == "org_not_found" {
+				w.Header().Set("Location", mysocket_fail_url)
+
+			} else {
+				w.Header().Set("Location", mysocket_fail_url)
+			}
 			w.WriteHeader(302)
 			c <- ""
 		}
@@ -521,7 +594,9 @@ func launch(url string, listener net.Listener) string {
 	if openBrowser(url) {
 		token = <-c
 	}
-
+	if token == "" {
+		log.Fatalln("Error:  login failed")
+	}
 	return token
 }
 
@@ -660,6 +735,11 @@ func init() {
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientTlsCmd.MarkFlagRequired("host")
+
+	clientCmd.AddCommand(clientLoginCmd)
+	clientLoginCmd.Flags().StringVarP(&orgId, "orgid", "", "", "The mysocket orgazation id")
+	clientLoginCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
+	clientLoginCmd.MarkFlagRequired("orgid")
 
 	clientCmd.AddCommand(clientSshKeySignCmd)
 	clientSshKeySignCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")

@@ -37,6 +37,7 @@ var (
 	password            string
 	port                int
 	hostname            string
+	orgId       	    string
 	sshkey              string
 	protected           bool
 	username            string

@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/term"
+	"github.com/txn2/txeh"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/spf13/cobra"
@@ -502,10 +503,23 @@ var clientLoginCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("couldn't parse dnsrecords response  %v", err.Error())
 		}
+
+		// Add DNS entriess
+		hosts, err := txeh.NewHostsDefault()
+		if err != nil {
+			log.Fatalf("couldn't instantiate hosts file  %v", err.Error())
+		}
+		hosts.RemoveAddress("75.2.104.207")
+
 		for _, s := range dnsDomains {
 			fmt.Println(s)
+			hosts.AddHost("75.2.104.207", s)
 		}
 
+		err = hosts.Save()
+		if err != nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
 	},
 }
 

@@ -11,6 +11,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/spf13/cobra v1.1.1
+	github.com/txn2/txeh v1.3.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 )

@@ -27,6 +27,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -35,6 +36,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"regexp"
 	"runtime"
 	"strings"
@@ -44,7 +46,10 @@ import (
 	"github.com/txn2/txeh"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/shirou/gopsutil/process"
+
 	"github.com/spf13/cobra"
+	"github.com/takama/daemon"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/context"
 )
@@ -54,7 +59,20 @@ const (
 	mysocket_api_url    = "https://api.mysocket.io"
 	mysocket_succes_url = "https://mysocket.io/succes-message/"
 	mysocket_fail_url   = "https://mysocket.io/fail-message/"
+
+	// for Service
+	service_name        = "mysocket_service"
+	service_description = "MySocket.io Service"
 )
+
+type Service struct {
+	daemon.Daemon
+}
+
+var stdlog, errlog *log.Logger
+
+//   dependencies that are NOT required by the service, but might be used
+var service_dependencies = []string{}
 
 type CertificateSigningRequest struct {
 	Csr string `json:"csr"`
@@ -447,15 +465,13 @@ var clientTlsCmd = &cobra.Command{
 // clientLoginCmd represents the client login DNS command
 var clientLoginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Login and Start DNS service for Private DNS",
+	Short: "Login and get API token so service can authenticate",
 	Run: func(cmd *cobra.Command, args []string) {
 		if orgId == "" {
 			log.Fatalf("error: empty orgid not allowed")
 		}
 
-		// Check if we already have a valid token
 		token_content := ""
-
 		if token_content == "" {
 
 			listener, err := net.Listen("tcp", "localhost:")
@@ -479,48 +495,254 @@ var clientLoginCmd = &cobra.Command{
 			log.Fatalf("Can't find claim for user_email")
 		}
 
-		//Now get the DNS domains request
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/dnsrecords", mysocket_api_url), nil)
-		req.Header.Add("x-access-token", token_content)
-		resp, err := client.Do(req)
+		u, err := user.Current()
 		if err != nil {
-			log.Fatalf("couldn't request dnsrecords  %v", err.Error())
+			log.Fatal(err)
 		}
-
-		defer resp.Body.Close()
-
-		if resp.StatusCode == 401 {
-			log.Fatalln("Error: No valid token, Please login")
-		}
-
-		if resp.StatusCode != 200 {
-			log.Fatalln("Error: Failed to get DNS records.. HTTP code not 200")
-		}
-
-		var dnsDomains []string
-		err = json.NewDecoder(resp.Body).Decode(&dnsDomains)
+		// Write to clientTokenfile
+		f, err := os.Create(clientTokenfile(u.HomeDir))
 		if err != nil {
-			log.Fatalf("couldn't parse dnsrecords response  %v", err.Error())
+			log.Fatalf("couldn't write token: %v", err.Error())
+		}
+		defer f.Close()
+		if err := os.Chmod(clientTokenfile(u.HomeDir), 0600); err != nil {
+			log.Fatalf("couldn't change permission for token file: %v", err.Error())
 		}
 
-		// Add DNS entriess
-		hosts, err := txeh.NewHostsDefault()
+		_, err = f.WriteString(fmt.Sprintf("%s\n", token_content))
 		if err != nil {
-			log.Fatalf("couldn't instantiate hosts file  %v", err.Error())
-		}
-		hosts.RemoveAddress("75.2.104.207")
-
-		for _, s := range dnsDomains {
-			fmt.Println(s)
-			hosts.AddHost("75.2.104.207", s)
+			log.Fatalf("couldn't write token to file: %v", err.Error())
 		}
 
-		err = hosts.Save()
+		// check if installed
+		switch runtime.GOOS {
+		case "darwin":
+			path := "/Library/LaunchDaemons/" + service_name + ".plist"
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				fmt.Println("Note, mysocket service not installed! ")
+				fmt.Println("please run this to install the service:")
+				fmt.Println("sudo " + os.Args[0] + " client service install")
+				return
+
+			}
+		}
+		processes, err := process.Processes()
 		if err != nil {
-			log.Fatalf("couldn't parse token: %v", err.Error())
+			panic(err)
 		}
+		foundProcess := false
+		for _, p := range processes {
+			cmdline, _ := p.Cmdline()
+			// See if it looks like the process we're  looking for
+			res := strings.Contains(cmdline, " client dnsupdater --homedir ") //
+			if res {
+				//fmt.Println("MATCH for ", cmdline)
+				//name, _ := p.Name()
+				//fmt.Println(p, name)
+				foundProcess = true
+				break
+			}
+		}
+		if foundProcess == false {
+			fmt.Println("Service not running! Please start the service using:")
+			fmt.Println("sudo " + os.Args[0] + " client service start")
+			return
+		}
+
+		fmt.Println("Login successful")
+
 	},
+}
+
+// clientDnsUpdaterCmd represents the client dnsupdater command
+var clientDnsUpdaterCmd = &cobra.Command{
+	Use:   "dnsupdater",
+	Short: "this is used by the client service. Updates local dns hosts file with private domains",
+	Run: func(cmd *cobra.Command, args []string) {
+
+		for {
+			update_dns(dnsupdater_homedir)
+			time.Sleep(5 * time.Second)
+		}
+
+	},
+}
+
+// clientServiceCmd represents the client service command
+var clientServiceCmd = &cobra.Command{
+	Use:   "service",
+	Short: "Install, Remove, Start and Stop the mysocketctl client service",
+
+	Run: func(cmd *cobra.Command, args []string) {
+
+		srv, err := daemon.New(service_name, service_description, daemon.GlobalDaemon, service_dependencies...)
+		if err != nil {
+			errlog.Println("Error: ", err)
+			os.Exit(1)
+		}
+		service := &Service{srv}
+		status, err := service.Manage()
+		if err != nil {
+			errlog.Println(status, "\nError: ", err)
+			os.Exit(1)
+		}
+		fmt.Println(status)
+	},
+}
+
+func (service *Service) Manage() (string, error) {
+
+	usage := fmt.Sprintf("Usage: %s %s %s install | remove | start | stop | status", os.Args[0], os.Args[1], os.Args[2])
+
+	// if received any kind of command, do it
+
+	if len(os.Args) > 3 {
+		command := os.Args[3]
+		switch command {
+		case "install":
+			u, err := user.Current()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// Also check for sudo users
+			username := os.Getenv("SUDO_USER")
+			if username != "" {
+				u, _ = user.Lookup(username)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			homedir := u.HomeDir
+
+			result, err := service.Install("client", "dnsupdater", "--homedir", homedir)
+			if err != nil {
+				return result, err
+			}
+			// Also start the service
+			fmt.Println(result)
+			return service.Start()
+
+		case "remove":
+			result, err := service.Stop()
+			if err == nil {
+				fmt.Println(result)
+			}
+			return service.Remove()
+		case "start":
+			return service.Start()
+		case "stop":
+			return service.Stop()
+		case "status":
+			return service.Status()
+		default:
+			return usage, nil
+		}
+
+	}
+	return usage, nil
+
+	// Do something, call your goroutines, etc
+
+	// Set up channel on which to send signal notifications.
+	// We must use a buffered channel or risk missing the signal
+	// if we're not ready to receive when the signal is sent.
+
+	/*
+		interrupt := make(chan os.Signal, 1)
+		signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
+
+		// blocking
+		go func() {
+			update_dns(orgId)
+		}()
+		//update_dns(orgId)
+	*/
+
+}
+
+func init() {
+	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+}
+
+func clientTokenfile(homedir string) string {
+	tokenfile := ""
+	if runtime.GOOS == "windows" {
+		// Not sure what this should be for windows... probably wont work as is
+		// service will run as admin, so not to adust this?
+		//tokenfile = fmt.Sprintf("%s/.mysocketio_client_token", os.Getenv("APPDATA"))
+		tokenfile = fmt.Sprintf("%s/.mysocketio_client_token", homedir)
+	} else {
+		tokenfile = fmt.Sprintf("%s/.mysocketio_client_token", homedir)
+	}
+	return tokenfile
+}
+
+func getClientToken(homedir string) (string, error) {
+	if _, err := os.Stat(clientTokenfile(homedir)); os.IsNotExist(err) {
+		fmt.Println(clientTokenfile(homedir))
+		return "", errors.New(fmt.Sprintf("Please login first (no token found in " + clientTokenfile(homedir) + ")"))
+	}
+	content, err := ioutil.ReadFile(clientTokenfile(homedir))
+	if err != nil {
+		return "", err
+	}
+
+	tokenString := strings.TrimRight(string(content), "\n")
+	return tokenString, nil
+}
+
+func update_dns(homedir string) {
+	//Now get the DNS domains request
+	token, err := getClientToken(homedir)
+	if err != nil {
+		log.Printf("couldn't get client token  %v", err.Error())
+		return
+	}
+
+	client := http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/dnsrecords", mysocket_api_url), nil)
+	req.Header.Add("x-access-token", token)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("couldn't request dnsrecords  %v", err.Error())
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		log.Println("Error: No valid token, Please login")
+	}
+
+	if resp.StatusCode != 200 {
+		log.Println("Error: Failed to get DNS records.. HTTP code not 200")
+	}
+
+	var dnsDomains []string
+	err = json.NewDecoder(resp.Body).Decode(&dnsDomains)
+	if err != nil {
+		log.Println("couldn't parse dnsrecords response  %v", err.Error())
+	}
+
+	// Add DNS entriess
+	hosts, err := txeh.NewHostsDefault()
+	if err != nil {
+		log.Println("couldn't instantiate hosts file  %v", err.Error())
+	}
+
+	hosts.RemoveAddress("75.2.104.207")
+
+	for _, s := range dnsDomains {
+		fmt.Println(s)
+		hosts.AddHost("75.2.104.207", s)
+	}
+
+	err = hosts.Save()
+	if err != nil {
+		log.Println("couldn't save file: %v", err.Error())
+	}
+
 }
 
 func mtls_tokenfile(dnsname string) string {
@@ -754,6 +976,11 @@ func init() {
 	clientLoginCmd.Flags().StringVarP(&orgId, "orgid", "", "", "The mysocket orgazation id")
 	clientLoginCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientLoginCmd.MarkFlagRequired("orgid")
+
+	clientCmd.AddCommand(clientDnsUpdaterCmd)
+	clientDnsUpdaterCmd.Flags().StringVarP(&dnsupdater_homedir, "homedir", "", "", "The home dir of the user running this service, so it can find tokenfile")
+
+	clientCmd.AddCommand(clientServiceCmd)
 
 	clientCmd.AddCommand(clientSshKeySignCmd)
 	clientSshKeySignCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")

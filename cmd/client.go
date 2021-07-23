@@ -276,17 +276,17 @@ var clientSshCmd = &cobra.Command{
 			log.Fatalf("session shell: %s", err)
 		}
 
-/*
-		if err := session.Wait(); err != nil {
-			if e, ok := err.(*ssh.ExitError); ok {
-				switch e.ExitStatus() {
-				case 130:
-					os.Exit(0)
+		/*
+			if err := session.Wait(); err != nil {
+				if e, ok := err.(*ssh.ExitError); ok {
+					switch e.ExitStatus() {
+					case 130:
+						os.Exit(0)
+					}
 				}
+				log.Fatalf("ssh: %s", err)
 			}
-			log.Fatalf("ssh: %s", err)
-		}
-*/
+		*/
 		session.Wait()
 
 	},
@@ -665,7 +665,7 @@ func (service *Service) Manage() (string, error) {
 			// Also check for sudo users
 			username := os.Getenv("SUDO_USER")
 			if username != "" {
-				u, _ = user.Lookup(username)
+				u, err = user.Lookup(username)
 				if err != nil {
 					log.Fatal(err)
 				}

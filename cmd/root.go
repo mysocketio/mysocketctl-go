@@ -37,6 +37,8 @@ var (
 	password            string
 	port                int
 	hostname            string
+	orgId       	    string
+	dnsupdater_homedir  string
 	sshkey              string
 	protected           bool
 	username            string

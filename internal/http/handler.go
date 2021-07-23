@@ -80,6 +80,38 @@ func (c *Client) Request(method string, url string, target interface{}, data int
 	return nil
 }
 
+func RefreshLogin() (string, error) {
+
+	client, err := NewClient()
+	if err != nil {
+		return "", err
+	}
+	loginRefresh := LoginRefresh{}
+	res := tokenForm{}
+
+	err = client.Request("POST", "login/refresh", res, loginRefresh)
+	if err != nil {
+		return "", err
+	}
+
+	f, err := os.Open(tokenfile())
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if err := os.Chmod(tokenfile(), 0600); err != nil {
+		return "", err
+	}
+
+	
+	_, err = f.WriteString(fmt.Sprintf("%s\n", res.Token))
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("%s\n", res.Token)
+	return res.Token, nil
+}
+
 func Login(email, password string) error {
 	c := &Client{}
 	form := loginForm{Email: email, Password: password}

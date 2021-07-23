@@ -10,8 +10,24 @@ type loginForm struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+type LoginRefresh struct {
+}
+
 type tokenForm struct {
 	Token string `json:"token"`
+}
+
+type DomainResource struct {
+	Private_socket bool     `json:"private_socket,omitempty"`
+	IpAddress      string   `json:"ip_address,omitempty"`
+	Domains        []string `json:"domains,omitempty"`
+}
+
+type DnsDomains struct {
+	RefreshHint     int              `json:"refresh_hint,omitempty"`
+	DomainResources []DomainResource `json:"resources,omitempty"`
+	DefaultIpAddresses []string `json:"ip_addresses,omitempty"`
 }
 
 type Account struct {

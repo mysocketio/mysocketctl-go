@@ -182,6 +182,18 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		signers = append(signers, auth...)
 	}
 
+	// Start a thread that refreshes the token
+	// refresh every hour, 3600secs
+	go func() {
+		for {
+			time.Sleep(3600 * time.Second)
+			_, err := http.RefreshLogin()
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}()
+
 	for {
 		// Let's fetch a short lived signed cert from api.mysocket.io
 		// We'll use that to authenticate. This returns a signer object.

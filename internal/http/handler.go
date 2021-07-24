@@ -87,28 +87,26 @@ func RefreshLogin() (string, error) {
 		return "", err
 	}
 	loginRefresh := LoginRefresh{}
-	res := tokenForm{}
+	res := TokenForm{}
 
-	err = client.Request("POST", "login/refresh", res, loginRefresh)
+	err = client.Request("POST", "login/refresh", &res, loginRefresh)
 	if err != nil {
 		return "", err
 	}
 
-	f, err := os.Open(tokenfile())
+	f, err := os.Create(tokenfile())
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 	if err := os.Chmod(tokenfile(), 0600); err != nil {
 		return "", err
 	}
+	defer f.Close()
 
-	
 	_, err = f.WriteString(fmt.Sprintf("%s\n", res.Token))
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("%s\n", res.Token)
 	return res.Token, nil
 }
 
@@ -137,7 +135,7 @@ func Login(email, password string) error {
 		return errors.New("failed to login")
 	}
 
-	res := tokenForm{}
+	res := TokenForm{}
 	json.NewDecoder(resp.Body).Decode(&res)
 
 	c.token = res.Token

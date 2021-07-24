@@ -14,7 +14,7 @@ type loginForm struct {
 type LoginRefresh struct {
 }
 
-type tokenForm struct {
+type TokenForm struct {
 	Token string `json:"token"`
 }
 
@@ -25,9 +25,9 @@ type DomainResource struct {
 }
 
 type DnsDomains struct {
-	RefreshHint     int              `json:"refresh_hint,omitempty"`
-	DomainResources []DomainResource `json:"resources,omitempty"`
-	DefaultIpAddresses []string `json:"ip_addresses,omitempty"`
+	RefreshHint        int              `json:"refresh_hint,omitempty"`
+	DomainResources    []DomainResource `json:"resources,omitempty"`
+	DefaultIpAddresses []string         `json:"ip_addresses,omitempty"`
 }
 
 type Account struct {

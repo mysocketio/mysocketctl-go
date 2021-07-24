@@ -661,16 +661,24 @@ func (service *Service) Manage() (string, error) {
 			if err != nil {
 				log.Fatal(err)
 			}
-
+			homedir := u.HomeDir
 			// Also check for sudo users
 			username := os.Getenv("SUDO_USER")
 			if username != "" {
-				u, err = user.Lookup(username)
-				if err != nil {
-					log.Fatal(err)
+				if runtime.GOOS == "darwin" {
+					// This is because of:
+					// https://github.com/golang/go/issues/24383
+					// os/user: LookupUser() doesn't find users on macOS when compiled with CGO_ENABLED=0
+					// So we'll just hard code for MACOS
+					homedir = "/Users/" + username
+				} else {
+					u, err = user.Lookup(username)
+					if err != nil {
+						log.Fatal(err)
+					}
+					homedir = u.HomeDir
 				}
 			}
-			homedir := u.HomeDir
 
 			result, err := service.Install("client", "dnsupdater", "--homedir", homedir)
 			if err != nil {

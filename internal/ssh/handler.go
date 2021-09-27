@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +10,9 @@ import (
 	"os"
 	"strings"
 	"time"
+	"net/url"
+	"net/http"
+	"regexp"
 
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -16,9 +20,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
-	"github.com/mysocketio/mysocketctl-go/internal/http"
+	mysocketctlhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/net/proxy"
 )
 
 const (
@@ -29,6 +34,15 @@ const (
 var (
 	defaultKeyFiles = []string{"id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"}
 )
+
+type httpProxy struct {
+	host     string
+	haveAuth bool
+	username string
+	password string
+	forward  proxy.Dialer
+}
+
 
 func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) {
 
@@ -99,12 +113,12 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 	data := ssh.MarshalAuthorizedKey(pub)
 
 	//post signing request
-	signedCert := http.SshCsr{}
-	newCsr := &http.SshCsr{
+	signedCert := mysocketctlhttp.SshCsr{}
+	newCsr := &mysocketctlhttp.SshCsr{
 		SSHPublicKey: strings.TrimRight(string(data), "\n"),
 	}
 	//log.Println(newCsr)
-	client, err := http.NewClient()
+	client, err := mysocketctlhttp.NewClient()
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -142,8 +156,8 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 	return certSigner
 }
 
-func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string) error {
-	tunnel, err := http.GetTunnel(socketID, tunnelID)
+func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string) error {
+	tunnel, err := mysocketctlhttp.GetTunnel(socketID, tunnelID)
 
 	if err != nil {
 		log.Fatalf("error: %v", err)
@@ -187,7 +201,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 	go func() {
 		for {
 			time.Sleep(3600 * time.Second)
-			_, err := http.RefreshLogin()
+			_, err := mysocketctlhttp.RefreshLogin()
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -211,11 +225,48 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 
 		fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
 		time.Sleep(1 * time.Second)
+
+/*
+
 		serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)
 		if err != nil {
 			log.Printf("Dial INTO remote server error: %s", err)
 			continue
 		}
+		defer serverConn.Close()
+*/
+
+		// check Dialer
+		proxyMatch, _ := regexp.Compile("^http(s)?://")
+		var proxyDialer proxy.Dialer
+		if proxyMatch.MatchString(proxyHost) {
+			proxyURL, err := url.Parse(proxyHost)
+			if err != nil {
+				log.Fatal("Invalid proxy URL: %s", err)
+			}
+			proxy.RegisterDialerType("http", newHttpProxy)
+			proxy.RegisterDialerType("https", newHttpProxy)
+			proxyDialer, err = proxy.FromURL(proxyURL, proxy.Direct)
+		} else {
+			proxyDialer = proxy.Direct
+		}
+
+		remoteHost := net.JoinHostPort(mySocketSSHServer, "22")
+		// Dial to host:port
+		conn, err := proxyDialer.Dial("tcp", remoteHost)
+		if err != nil {
+			log.Printf("Dial INTO remote server error: %s", err)
+			continue
+		}
+
+		sshCon, channel, req, err := ssh.NewClientConn(conn, remoteHost, sshConfig)
+		if err != nil {
+			log.Printf("Dial INTO remote server error: %s", err)
+			continue
+		}
+
+		// Create *ssh.Client
+		serverConn := ssh.NewClient(sshCon, channel, req)
 		defer serverConn.Close()
 
 		listener, err := serverConn.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
@@ -261,8 +312,6 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 						return
 					}
 
-					//go ioCopy(client, local)
-					//go ioCopy(local, client)
 					go handleClient(client, local)
 				}()
 			}
@@ -303,11 +352,6 @@ func handleClient(client net.Conn, remote net.Conn) {
 	<-chDone
 }
 
-func ioCopy(dst io.Writer, src io.Reader) {
-	if _, err := io.Copy(dst, src); err != nil {
-		log.Printf("io.Copy failed: %v", err)
-	}
-}
 
 func authWithPrivateKeys(keyFiles []string, fatalOnError bool) ([]ssh.Signer, error) {
 	var signers []ssh.Signer
@@ -347,3 +391,63 @@ func authWithAgent() ([]ssh.Signer, error) {
 
 	return nil, nil
 }
+
+func newHttpProxy(uri *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
+	s := new(httpProxy)
+	s.host = uri.Host
+	s.forward = forward
+	if uri.User != nil {
+		s.haveAuth = true
+		s.username = uri.User.Username()
+		s.password, _ = uri.User.Password()
+	}
+	return s, nil
+}
+
+func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
+	c, err := s.forward.Dial("tcp", s.host)
+	if err != nil {
+		return nil, err
+	}
+
+	reqURL, err := url.Parse("http://" + addr)
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+	reqURL.Scheme = ""
+
+	req, err := http.NewRequest("CONNECT", reqURL.String(), nil)
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+	req.Close = false
+	if s.haveAuth {
+		req.SetBasicAuth(s.username, s.password)
+	}
+	req.Header.Set("User-Agent", "Mysocketctl")
+
+	err = req.Write(c)
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(c), req)
+	if err != nil {
+		resp.Body.Close()
+		c.Close()
+		return nil, err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		c.Close()
+		err = fmt.Errorf("Connect server using proxy error, StatusCode [%d]", resp.StatusCode)
+		return nil, err
+	}
+
+	return c, nil
+}
+
+

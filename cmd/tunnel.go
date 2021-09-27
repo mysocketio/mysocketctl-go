@@ -150,7 +150,7 @@ var tunnelConnectCmd = &cobra.Command{
 		}()
 
 		SetRlimit()
-		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile)
+		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost)
 	},
 }
 
@@ -184,6 +184,7 @@ func init() {
 	tunnelConnectCmd.Flags().StringVarP(&identityFile, "identity_file", "i", "", "Identity File")
 	tunnelConnectCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	tunnelConnectCmd.Flags().StringVarP(&hostname, "host", "", "127.0.0.1", "Target host: Control where inbound traffic goes. Default localhost")
+	tunnelConnectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
 	tunnelConnectCmd.MarkFlagRequired("tunnel_id")
 	tunnelConnectCmd.MarkFlagRequired("socket_id")
 	tunnelConnectCmd.MarkFlagRequired("port")

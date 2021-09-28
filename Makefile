@@ -19,10 +19,15 @@ release:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(FLAGS) -o ./bin/$(BINARY_NAME)_linux_arm64
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm go build $(FLAGS) -o ./bin/$(BINARY_NAME)_linux_arm
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(FLAGS)  -o ./bin/$(BINARY_NAME)_darwin_amd64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(FLAGS)  -o ./bin/$(BINARY_NAME)_darwin_amd64
 
 	shasum -a 256 ./bin/mysocketctl_darwin_amd64 | awk '{print $$1}' > ./bin/mysocketctl_darwin_amd64-sha256-checksum.txt
 	python3 ./s3upload.py ./bin/mysocketctl_darwin_amd64-sha256-checksum.txt ${BUCKET} darwin_amd64/sha256-checksum.txt
 	python3 ./s3upload.py ./bin/mysocketctl_darwin_amd64 ${BUCKET} darwin_amd64/mysocketctl
+
+	shasum -a 256 ./bin/mysocketctl_darwin_arm64 | awk '{print $$1}' > ./bin/mysocketctl_darwin_arm64-sha256-checksum.txt
+	python3 ./s3upload.py ./bin/mysocketctl_darwin_arm64-sha256-checksum.txt ${BUCKET} darwin_arm64/sha256-checksum.txt
+	python3 ./s3upload.py ./bin/mysocketctl_darwin_arm64 ${BUCKET} darwin_arm64/mysocketctl
 
 	shasum -a 256 ./bin/mysocketctl_linux_amd64 | awk '{print $$1}' > ./bin/mysocketctl_linux_amd64-sha256-checksum.txt
 	python3 ./s3upload.py ./bin/mysocketctl_linux_amd64-sha256-checksum.txt ${BUCKET} linux_amd64/sha256-checksum.txt

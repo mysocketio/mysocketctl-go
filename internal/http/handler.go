@@ -207,8 +207,13 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 	var checksum_url string
 	switch osname {
 	case "darwin":
-		bin_url = download_url + "/darwin_amd64/mysocketctl"
-		checksum_url = download_url + "/darwin_amd64/sha256-checksum.txt"
+		if osarch == "amd64" {
+			bin_url = download_url + "/darwin_amd64/mysocketctl"
+			checksum_url = download_url + "/darwin_amd64/sha256-checksum.txt"
+		} else if osarch == "arm64" {
+			bin_url = download_url + "/darwin_arm64/mysocketctl"
+			checksum_url = download_url + "/darwin_arm64/sha256-checksum.txt"
+		}
 	case "linux":
 		if osarch == "arm64" {
 			bin_url = download_url + "/linux_arm64/mysocketctl"

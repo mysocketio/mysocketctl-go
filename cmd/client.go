@@ -40,6 +40,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/pkg/term"
@@ -465,7 +466,31 @@ var clientTlsCmd = &cobra.Command{
 			log.Fatalf("failed to connect: %v", err.Error())
 		}
 
-		tcp_con_handle(conn)
+		if listener > 0 {
+			l, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", listener))
+			if err != nil {
+				log.Fatalln("Error: Unable to start local TLS listener.")
+			}
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				log.Print("Waiting for connection...")
+				lcon, err := l.Accept()
+				if err != nil {
+					log.Fatalf("Listener: Accept Error: %s\n", err)
+				}
+				log.Print("Connection established")
+				defer lcon.Close()
+				tcp_con_handle(conn, lcon, lcon)
+			}()
+
+			wg.Wait()
+		} else {
+			tcp_con_handle(conn, os.Stdin, os.Stdout)
+		}
 
 	},
 }
@@ -850,9 +875,11 @@ func mtls_tokenfile(dnsname string) string {
 	}
 	return tokenfile
 }
-func tcp_con_handle(con net.Conn) {
-	chan_to_stdout := stream_copy(con, os.Stdout)
-	chan_to_remote := stream_copy(os.Stdin, con)
+
+func tcp_con_handle(con net.Conn, in io.Reader, out io.Writer) {
+	chan_to_stdout := stream_copy(con, out)
+	chan_to_remote := stream_copy(in, con)
+
 	select {
 	case <-chan_to_stdout:
 	case <-chan_to_remote:
@@ -1069,6 +1096,7 @@ func init() {
 	clientCmd.AddCommand(clientTlsCmd)
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
+	clientTlsCmd.Flags().IntVarP(&listener, "listener", "l", 0, "Listener port number")
 	clientTlsCmd.MarkFlagRequired("host")
 
 	clientCmd.AddCommand(clientLoginCmd)

@@ -7,12 +7,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
-	"net/url"
-	"net/http"
-	"regexp"
 
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -42,7 +42,6 @@ type httpProxy struct {
 	password string
 	forward  proxy.Dialer
 }
-
 
 func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) {
 
@@ -226,15 +225,15 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
 		time.Sleep(1 * time.Second)
 
-/*
+		/*
 
-		serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)
-		if err != nil {
-			log.Printf("Dial INTO remote server error: %s", err)
-			continue
-		}
-		defer serverConn.Close()
-*/
+			serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)
+			if err != nil {
+				log.Printf("Dial INTO remote server error: %s", err)
+				continue
+			}
+			defer serverConn.Close()
+		*/
 
 		// check Dialer
 		proxyMatch, _ := regexp.Compile("^http(s)?://")
@@ -242,7 +241,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		if proxyMatch.MatchString(proxyHost) {
 			proxyURL, err := url.Parse(proxyHost)
 			if err != nil {
-				log.Fatal("Invalid proxy URL: %s", err)
+				log.Fatalf("Invalid proxy URL: %s", err)
 			}
 			proxy.RegisterDialerType("http", newHttpProxy)
 			proxy.RegisterDialerType("https", newHttpProxy)
@@ -352,7 +351,6 @@ func handleClient(client net.Conn, remote net.Conn) {
 	<-chDone
 }
 
-
 func authWithPrivateKeys(keyFiles []string, fatalOnError bool) ([]ssh.Signer, error) {
 	var signers []ssh.Signer
 
@@ -449,5 +447,3 @@ func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
 
 	return c, nil
 }
-
-

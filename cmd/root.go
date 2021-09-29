@@ -37,7 +37,7 @@ var (
 	password            string
 	port                int
 	hostname            string
-	orgId       	    string
+	orgId               string
 	dnsupdater_homedir  string
 	sshkey              string
 	protected           bool
@@ -49,7 +49,8 @@ var (
 	cloudauth_addresses string
 	cloudauth_domains   string
 	createsshkey        bool
-	proxyHost	    string
+	proxyHost           string
+	listener            int
 )
 
 // rootCmd represents the base command when called without any subcommands

@@ -156,7 +156,7 @@ func init() {
 	connectCmd.Flags().BoolVarP(&cloudauth, "cloudauth", "c", false, "Enable oauth/oidc authentication")
 	connectCmd.Flags().StringVarP(&cloudauth_addresses, "allowed_email_addresses", "e", "", "Comma seperated list of allowed Email addresses when using cloudauth")
 	connectCmd.Flags().StringVarP(&cloudauth_domains, "allowed_email_domains", "d", "", "comma seperated list of allowed Email domain (i.e. 'example.com', when using cloudauth")
-        connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
+	connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
 	connectCmd.MarkFlagRequired("port")
 	connectCmd.MarkFlagRequired("name")
 

@@ -125,14 +125,23 @@ var socketCreateCmd = &cobra.Command{
 		}
 
 		socketType := strings.ToLower(socketType)
-		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" {
-			log.Fatalf("error: --type should be either http, https, ssh, tcp or tls")
+		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" && socketType != "database" {
+			log.Fatalf("error: --type should be either http, https, ssh, database, tcp or tls")
 		}
 
-		if socketType == "ssh" {
+		if socketType == "ssh" || socketType == "database" {
 			if cloudauth == false {
 				log.Println("Cloud Authentication required for ssh sockets")
 				os.Exit(1)
+			}
+		}
+
+		if socketType == "database" {
+			if upstream_username == "" {
+				log.Fatalln("Upstream Username required for database sockets")
+			}
+			if upstream_password == "" {
+				log.Fatalln("Upstream Password required for database sockets")
 			}
 		}
 
@@ -151,6 +160,8 @@ var socketCreateCmd = &cobra.Command{
 			CloudAuthEnabled:      cloudauth,
 			AllowedEmailAddresses: allowedEmailAddresses,
 			AllowedEmailDomains:   allowedEmailDomains,
+			UpstreamUsername:      upstream_username,
+			UpstreamPassword:      upstream_password,
 		}
 		err = client.Request("POST", "socket", &s, newSocket)
 		if err != nil {
@@ -219,7 +230,9 @@ func init() {
 	socketCreateCmd.Flags().BoolVarP(&cloudauth, "cloudauth", "c", false, "Enable oauth/oidc authentication")
 	socketCreateCmd.Flags().StringVarP(&cloudauth_addresses, "allowed_email_addresses", "e", "", "Comma seperated list of allowed Email addresses when using cloudauth")
 	socketCreateCmd.Flags().StringVarP(&cloudauth_domains, "allowed_email_domains", "d", "", "comma seperated list of allowed Email domain (i.e. 'example.com', when using cloudauth")
-	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls")
+	socketCreateCmd.Flags().StringVarP(&upstream_username, "upstream_username", "j", "", "Upstream username used to connect to upstream database")
+	socketCreateCmd.Flags().StringVarP(&upstream_password, "upstream_password", "k", "", "Upstream password used to connect to upstream database")
+	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls, database")
 	socketCreateCmd.MarkFlagRequired("name")
 
 	socketDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")

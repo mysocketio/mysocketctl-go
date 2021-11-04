@@ -51,6 +51,8 @@ var (
 	createsshkey        bool
 	proxyHost           string
 	listener            int
+	upstream_username   string
+	upstream_password   string
 )
 
 // rootCmd represents the base command when called without any subcommands

@@ -78,13 +78,22 @@ var connectCmd = &cobra.Command{
 		}
 
 		socketType := strings.ToLower(socketType)
-		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" {
-			log.Fatalf("error: --type should be either http, https, tcp, ssh or tls")
+		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" && socketType != "database" {
+			log.Fatalf("error: --type should be either http, https, tcp, database, ssh or tls")
 		}
-		if socketType == "ssh" {
+		if socketType == "ssh" || socketType == "database" {
 			if cloudauth == false {
 				log.Println("Cloud Authentication required for ssh sockets")
 				os.Exit(1)
+			}
+		}
+
+		if socketType == "database" {
+			if upstream_username == "" {
+				log.Fatalln("Upstream Username required for database sockets")
+			}
+			if upstream_password == "" {
+				log.Fatalln("Upstream Password required for database sockets")
 			}
 		}
 
@@ -97,6 +106,8 @@ var connectCmd = &cobra.Command{
 			CloudAuthEnabled:      cloudauth,
 			AllowedEmailAddresses: allowedEmailAddresses,
 			AllowedEmailDomains:   allowedEmailDomains,
+			UpstreamUsername:      upstream_username,
+			UpstreamPassword:      upstream_password,
 		}
 
 		client, err := http.NewClient()
@@ -151,11 +162,13 @@ func init() {
 	connectCmd.Flags().BoolVarP(&protected, "protected", "", false, "Protected, default no")
 	connectCmd.Flags().StringVarP(&username, "username", "u", "", "Username, required when protected set to true")
 	connectCmd.Flags().StringVarP(&password, "password", "", "", "Password, required when protected set to true")
-	connectCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls")
+	connectCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls, database")
 	connectCmd.Flags().StringVarP(&identityFile, "identity_file", "i", "", "Identity File")
 	connectCmd.Flags().BoolVarP(&cloudauth, "cloudauth", "c", false, "Enable oauth/oidc authentication")
 	connectCmd.Flags().StringVarP(&cloudauth_addresses, "allowed_email_addresses", "e", "", "Comma seperated list of allowed Email addresses when using cloudauth")
 	connectCmd.Flags().StringVarP(&cloudauth_domains, "allowed_email_domains", "d", "", "comma seperated list of allowed Email domain (i.e. 'example.com', when using cloudauth")
+	connectCmd.Flags().StringVarP(&upstream_username, "upstream_username", "j", "", "Upstream username used to connect to upstream database")
+	connectCmd.Flags().StringVarP(&upstream_password, "upstream_password", "k", "", "Upstream password used to connect to upstream database")
 	connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
 	connectCmd.MarkFlagRequired("port")
 	connectCmd.MarkFlagRequired("name")

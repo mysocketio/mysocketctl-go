@@ -99,6 +99,87 @@ var clientCmd = &cobra.Command{
 	Short: "Client commands",
 }
 
+var clientCertCmd = &cobra.Command{
+	Use:   "cert",
+	Short: "Client certificates",
+}
+
+var clientCertFetchCmd = &cobra.Command{
+	Use:   "fetch",
+	Short: "Fetch Client certificate",
+	Run: func(cmd *cobra.Command, args []string) {
+		if hostname == "" {
+			log.Fatalf("error: empty hostname not allowed")
+		}
+
+		// Check if we already have a valid token
+		token_content := ""
+
+		tokenfile := mtls_tokenfile(hostname)
+		if _, err := os.Stat(tokenfile); os.IsNotExist(err) {
+			// Does not exist
+		} else {
+			// read token from file
+			content, _ := ioutil.ReadFile(tokenfile)
+			if err == nil {
+				tokenString := strings.TrimRight(string(content), "\n")
+				tmp_jwt_token, _ := jwt.Parse(tokenString, nil)
+				if tmp_jwt_token != nil {
+
+					claims := tmp_jwt_token.Claims.(jwt.MapClaims)
+					exp := int64(claims["exp"].(float64))
+					//  subtract 10secs from token, for expected work time
+					//  If token time is larger then current time we're good
+					if exp-10 > time.Now().Unix() {
+						token_content = tokenString
+					}
+				}
+			}
+		}
+
+		if token_content == "" {
+			listener, err := net.Listen("tcp", "localhost:")
+			if err != nil {
+				log.Fatalln("Error: Unable to start local http listener.")
+			}
+
+			local_port := listener.Addr().(*net.TCPAddr).Port
+			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+			token_content = launch(url, listener)
+		}
+
+		jwt_token, err := jwt.Parse(token_content, nil)
+		if jwt_token == nil {
+			log.Fatalf("couldn't parse token: %v", err.Error())
+		}
+
+		claims := jwt_token.Claims.(jwt.MapClaims)
+		if _, ok := claims["user_email"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for user_email")
+		}
+
+		if _, ok := claims["socket_dns"]; ok {
+		} else {
+			log.Fatalf("Can't find claim for socket_dns")
+		}
+
+		var cert *CertificateResponse
+		if token_content != "" {
+			cert = getCert(token_content, claims["socket_dns"].(string), claims["user_email"].(string))
+		} else {
+			log.Fatalln("Error: Login failed")
+		}
+
+		socketDNS := claims["socket_dns"]
+		home, err := os.UserHomeDir()
+		err = ioutil.WriteFile(fmt.Sprintf("%s/.mysocketio/%s.key", home, socketDNS), []byte(cert.PrivateKey), 0600)
+		err = ioutil.WriteFile(fmt.Sprintf("%s/.mysocketio/%s.crt", home, socketDNS), []byte(cert.Certificate), 0600)
+		fmt.Printf("Client certificate file: %s/.mysocketio/%s.crt and key %s/.mysocketio/%s.key\n", home, socketDNS, home, socketDNS)
+
+	},
+}
+
 // clientSshCmd represents the client ssh keysign command
 var clientSshCmd = &cobra.Command{
 	Use:   "ssh",
@@ -1021,6 +1102,7 @@ func getCert(token string, socketDNS string, email string) *CertificateResponse 
 	}
 
 	cert.PrivateKey = string(privateKey)
+
 	return cert
 }
 
@@ -1098,6 +1180,11 @@ func init() {
 	clientTlsCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientTlsCmd.Flags().IntVarP(&listener, "listener", "l", 0, "Listener port number")
 	clientTlsCmd.MarkFlagRequired("host")
+
+	clientCmd.AddCommand(clientCertCmd)
+	clientCertCmd.AddCommand(clientCertFetchCmd)
+	clientCertFetchCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
+	clientCertFetchCmd.MarkFlagRequired("host")
 
 	clientCmd.AddCommand(clientLoginCmd)
 	clientLoginCmd.Flags().StringVarP(&orgId, "org", "", "", "The mysocket organization id / email")

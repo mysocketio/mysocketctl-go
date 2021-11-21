@@ -173,8 +173,28 @@ var clientCertFetchCmd = &cobra.Command{
 
 		socketDNS := claims["socket_dns"]
 		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Error: failed to get homedir : %v", err)
+		}
+
+		// create dir if not exists
+		if _, err := os.Stat(fmt.Sprintf("%s/.mysocketio", home)); os.IsNotExist(err) {
+			err := os.Mkdir(fmt.Sprintf("%s/.mysocketio", home), 0700)
+			if err != nil {
+				log.Fatalf("Error: failed to create directory %s/.mysocketio : %v", home, err)
+			}
+		}
+
 		err = ioutil.WriteFile(fmt.Sprintf("%s/.mysocketio/%s.key", home, socketDNS), []byte(cert.PrivateKey), 0600)
+		if err != nil {
+			log.Fatalf("Error: failed to write key file : %v", err)
+		}
+
 		err = ioutil.WriteFile(fmt.Sprintf("%s/.mysocketio/%s.crt", home, socketDNS), []byte(cert.Certificate), 0600)
+		if err != nil {
+			log.Fatalf("Error: failed to write certificate file : %v", err)
+		}
+
 		fmt.Printf("Client certificate file: %s/.mysocketio/%s.crt and key %s/.mysocketio/%s.key\n", home, socketDNS, home, socketDNS)
 
 	},

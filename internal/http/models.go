@@ -55,6 +55,8 @@ type Socket struct {
 	SSHCa                 string   `json:"ssh_ca,omitempty"`
 	UpstreamUsername      string   `json:"upstream_username,omitempty"`
 	UpstreamPassword      string   `json:"upstream_password,omitempty"`
+	UpstreamHttpHostname  string   `json:"upstream_http_hostname,omitempty"`
+	UpstreamType          string   `json:"upstream_type,omitempty"`
 }
 
 type Tunnel struct {

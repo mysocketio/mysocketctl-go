@@ -28,31 +28,33 @@ import (
 )
 
 var (
-	version             string
-	date                string
-	cfgFile             string
-	email               string
-	name                string
-	socketType          string
-	password            string
-	port                int
-	hostname            string
-	orgId               string
-	dnsupdater_homedir  string
-	sshkey              string
-	protected           bool
-	username            string
-	socketID            string
-	tunnelID            string
-	identityFile        string
-	cloudauth           bool
-	cloudauth_addresses string
-	cloudauth_domains   string
-	createsshkey        bool
-	proxyHost           string
-	listener            int
-	upstream_username   string
-	upstream_password   string
+	version                string
+	date                   string
+	cfgFile                string
+	email                  string
+	name                   string
+	socketType             string
+	password               string
+	port                   int
+	hostname               string
+	orgId                  string
+	dnsupdater_homedir     string
+	sshkey                 string
+	protected              bool
+	username               string
+	socketID               string
+	tunnelID               string
+	identityFile           string
+	cloudauth              bool
+	cloudauth_addresses    string
+	cloudauth_domains      string
+	createsshkey           bool
+	proxyHost              string
+	listener               int
+	upstream_username      string
+	upstream_password      string
+	upstream_http_hostname string
+	upstream_type          string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -129,5 +131,16 @@ func print_socket(s http.Socket) string {
 			socket_output = socket_output + fmt.Sprintf("\nSSH Public CA for this Socket:\n%s\n", s.SSHCa)
 		}
 	}
+
+	if s.SocketType == "http" || s.SocketType == "https" {
+		th := table.NewWriter()
+		th.AppendHeader(table.Row{"Upstream Type", "Upstream Hostname"})
+		th.AppendRow(table.Row{s.UpstreamType, s.UpstreamHttpHostname})
+		th.SetStyle(table.StyleLight)
+		if s.UpstreamType != "" || s.UpstreamHttpHostname != "" {
+			socket_output = socket_output + fmt.Sprintf("\nHTTP Options:\n%s\n", th.Render())
+		}
+	}
+
 	return socket_output
 }

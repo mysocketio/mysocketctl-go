@@ -145,6 +145,11 @@ var socketCreateCmd = &cobra.Command{
 			}
 		}
 
+		upstreamType := strings.ToLower(upstream_type)
+		if upstreamType != "http" && upstreamType != "https" && upstreamType != "" {
+			log.Fatalf("error: --upstream_type should be either http, https")
+		}
+
 		client, err := http.NewClient()
 		if err != nil {
 			log.Fatalf("error: %v", err)
@@ -162,6 +167,8 @@ var socketCreateCmd = &cobra.Command{
 			AllowedEmailDomains:   allowedEmailDomains,
 			UpstreamUsername:      upstream_username,
 			UpstreamPassword:      upstream_password,
+			UpstreamHttpHostname:  upstream_http_hostname,
+			UpstreamType:          upstreamType,
 		}
 		err = client.Request("POST", "socket", &s, newSocket)
 		if err != nil {
@@ -232,6 +239,8 @@ func init() {
 	socketCreateCmd.Flags().StringVarP(&cloudauth_domains, "allowed_email_domains", "d", "", "comma seperated list of allowed Email domain (i.e. 'example.com', when using cloudauth")
 	socketCreateCmd.Flags().StringVarP(&upstream_username, "upstream_username", "j", "", "Upstream username used to connect to upstream database")
 	socketCreateCmd.Flags().StringVarP(&upstream_password, "upstream_password", "k", "", "Upstream password used to connect to upstream database")
+	socketCreateCmd.Flags().StringVarP(&upstream_http_hostname, "upstream_http_hostname", "", "", "Upstream http hostname")
+	socketCreateCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: http or https")
 	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls, database")
 	socketCreateCmd.MarkFlagRequired("name")
 

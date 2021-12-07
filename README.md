@@ -8,7 +8,14 @@ Please check the full documentation here: [mysocketctl documentation on readthed
 
 Installation
 --------------------
-Please download the binaries at https://download.edge.mysocket.io 
+Please download the binaries at https://download.edge.mysocket.io
+
+Shell auto-completion
+--------------------
+display autocomplete installation instructions
+```shell
+mysocketctl completion --help
+```
 
 Authors
 --------------------

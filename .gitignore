@@ -15,4 +15,4 @@
 # vendor/
 bin/
 mysocketctl
-
+mysocketctl-go

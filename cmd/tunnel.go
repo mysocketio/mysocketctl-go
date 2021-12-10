@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
@@ -154,6 +155,31 @@ var tunnelConnectCmd = &cobra.Command{
 	},
 }
 
+func getTunnels(toComplete string, args []string) []string {
+	var r []string
+
+	client, err := http.NewClient()
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	sockets := []http.Socket{}
+	err = client.Request("GET", "connect", &sockets, nil)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Error: %v", err))
+	}
+
+	for _, s := range sockets {
+		for _, t := range s.Tunnels {
+			if strings.HasPrefix(t.TunnelID, toComplete) {
+				r = append(r, t.TunnelID)
+			}
+		}
+	}
+
+	return r
+}
+
 func init() {
 	rootCmd.AddCommand(tunnelCmd)
 	tunnelCmd.AddCommand(tunnelListCmd)
@@ -175,10 +201,25 @@ func init() {
 	tunnelDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	tunnelDeleteCmd.MarkFlagRequired("tunnel_id")
 	tunnelDeleteCmd.MarkFlagRequired("socket_id")
+	tunnelDeleteCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+	tunnelDeleteCmd.RegisterFlagCompletionFunc("tunnel_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getTunnels(toComplete, args), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	tunnelListCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	tunnelListCmd.MarkFlagRequired("socket_id")
+	tunnelListCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	tunnelCreateCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	tunnelCreateCmd.MarkFlagRequired("socket_id")
+	tunnelCreateCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	tunnelConnectCmd.Flags().StringVarP(&tunnelID, "tunnel_id", "t", "", "Tunnel ID")
 	tunnelConnectCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	tunnelConnectCmd.Flags().StringVarP(&identityFile, "identity_file", "i", "", "Identity File")
@@ -188,4 +229,10 @@ func init() {
 	tunnelConnectCmd.MarkFlagRequired("tunnel_id")
 	tunnelConnectCmd.MarkFlagRequired("socket_id")
 	tunnelConnectCmd.MarkFlagRequired("port")
+	tunnelConnectCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+	tunnelConnectCmd.RegisterFlagCompletionFunc("tunnel_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getTunnels(toComplete, args), cobra.ShellCompDirectiveNoFileComp
+	})
 }

@@ -130,7 +130,7 @@ var socketCreateCmd = &cobra.Command{
 		}
 
 		if socketType == "ssh" || socketType == "database" {
-			if cloudauth == false {
+			if !cloudauth {
 				log.Println("Cloud Authentication required for ssh sockets")
 				os.Exit(1)
 			}

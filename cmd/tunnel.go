@@ -155,25 +155,27 @@ var tunnelConnectCmd = &cobra.Command{
 	},
 }
 
-func getTunnels(toComplete string, args []string) []string {
+func getTunnels(toComplete string) []string {
 	var r []string
+
+	if socketID == "" {
+		return r
+	}
 
 	client, err := http.NewClient()
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	sockets := []http.Socket{}
-	err = client.Request("GET", "connect", &sockets, nil)
+	tunnels := []http.Tunnel{}
+	err = client.Request("GET", "socket/"+socketID+"/tunnel", &tunnels, nil)
 	if err != nil {
 		log.Fatalf(fmt.Sprintf("Error: %v", err))
 	}
 
-	for _, s := range sockets {
-		for _, t := range s.Tunnels {
-			if strings.HasPrefix(t.TunnelID, toComplete) {
-				r = append(r, t.TunnelID)
-			}
+	for _, t := range tunnels {
+		if strings.HasPrefix(t.TunnelID, toComplete) {
+			r = append(r, t.TunnelID)
 		}
 	}
 
@@ -205,7 +207,7 @@ func init() {
 		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 	tunnelDeleteCmd.RegisterFlagCompletionFunc("tunnel_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return getTunnels(toComplete, args), cobra.ShellCompDirectiveNoFileComp
+		return getTunnels(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 
 	tunnelListCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
@@ -233,6 +235,6 @@ func init() {
 		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 	tunnelConnectCmd.RegisterFlagCompletionFunc("tunnel_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return getTunnels(toComplete, args), cobra.ShellCompDirectiveNoFileComp
+		return getTunnels(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 }

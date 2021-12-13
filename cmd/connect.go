@@ -82,7 +82,7 @@ var connectCmd = &cobra.Command{
 			log.Fatalf("error: --type should be either http, https, tcp, database, ssh or tls")
 		}
 		if socketType == "ssh" || socketType == "database" {
-			if cloudauth == false {
+			if !cloudauth {
 				log.Println("Cloud Authentication required for ssh sockets")
 				os.Exit(1)
 			}
@@ -142,7 +142,7 @@ var connectCmd = &cobra.Command{
 		go func() {
 			<-ch
 			fmt.Println("cleaning up...")
-			client, err := http.NewClient()
+			client, _ := http.NewClient()
 			err = client.Request("DELETE", "socket/"+c.SocketID, nil, nil)
 			if err != nil {
 				log.Fatalf("error: %v", err)

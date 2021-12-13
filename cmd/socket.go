@@ -130,7 +130,7 @@ var socketCreateCmd = &cobra.Command{
 		}
 
 		if socketType == "ssh" || socketType == "database" {
-			if cloudauth == false {
+			if !cloudauth {
 				log.Println("Cloud Authentication required for ssh sockets")
 				os.Exit(1)
 			}
@@ -223,6 +223,29 @@ var socketShowCmd = &cobra.Command{
 	},
 }
 
+func getSockets(toComplete string) []string {
+	var socketIDs []string
+
+	client, err := http.NewClient()
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	sockets := []http.Socket{}
+	err = client.Request("GET", "socket", &sockets, nil)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Error: %v", err))
+	}
+
+	for _, s := range sockets {
+		if strings.HasPrefix(s.SocketID, toComplete) {
+			socketIDs = append(socketIDs, s.SocketID)
+		}
+	}
+
+	return socketIDs
+}
+
 func init() {
 	rootCmd.AddCommand(socketCmd)
 	socketCmd.AddCommand(socketsListCmd)
@@ -246,7 +269,14 @@ func init() {
 
 	socketDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	socketDeleteCmd.MarkFlagRequired("socket_id")
+	socketDeleteCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
 
 	socketShowCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	socketShowCmd.MarkFlagRequired("socket_id")
+	socketShowCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+
 }

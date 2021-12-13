@@ -30,7 +30,6 @@ import (
 var (
 	version                string
 	date                   string
-	cfgFile                string
 	email                  string
 	name                   string
 	socketType             string
@@ -48,7 +47,6 @@ var (
 	cloudauth              bool
 	cloudauth_addresses    string
 	cloudauth_domains      string
-	createsshkey           bool
 	proxyHost              string
 	listener               int
 	upstream_username      string

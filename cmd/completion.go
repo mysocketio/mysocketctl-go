@@ -22,6 +22,9 @@ var completionCmd = &cobra.Command{
 		case "bash":
 			cmd.Root().GenBashCompletion(os.Stdout)
 		case "zsh":
+			zshHead := "#compdef mysocketctl\ncompdef _mysocketctl mysocketctl\n"
+			os.Stdout.Write([]byte(zshHead))
+
 			cmd.Root().GenZshCompletion(os.Stdout)
 		case "fish":
 			cmd.Root().GenFishCompletion(os.Stdout, true)
@@ -37,7 +40,7 @@ func completionUsage() string {
 		out, err := exec.Command("brew", "--prefix").CombinedOutput()
 		trimmed := strings.TrimSpace(string(out))
 		if err != nil {
-			fmt.Printf("ERROR: cannot execute `brew --prefix` %s, %s\n\n", trimmed, err)
+			fmt.Fprintf(os.Stderr, "ERROR: cannot execute `brew --prefix` %s, %s\n\n", trimmed, err)
 		} else {
 			brewPrefix = trimmed
 		}

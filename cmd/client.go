@@ -27,7 +27,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -43,7 +42,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/pkg/term"
+	"github.com/moby/term"
 	"github.com/txn2/txeh"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -238,12 +237,8 @@ var clientSshCmd = &cobra.Command{
 			log.Fatalf("Can't find claim for socket_dns")
 		}
 
-		var sshCert *SshSignResponse
-		sshCert = genSshKey(token, claims["socket_dns"].(string))
-
-		var cert *CertificateResponse
-		cert = getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
-
+		sshCert := genSshKey(token, claims["socket_dns"].(string))
+		cert := getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
 		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
 		if err != nil {
 			log.Fatalf("Error: unable to load certificate: %s", err)
@@ -428,8 +423,7 @@ var clientSshKeySignCmd = &cobra.Command{
 			log.Fatalf("Can't find claim for socket_dns")
 		}
 
-		var key *SshSignResponse
-		key = genSshKey(token, claims["socket_dns"].(string))
+		key := genSshKey(token, claims["socket_dns"].(string))
 
 		// write public key
 		home, err := os.UserHomeDir()
@@ -459,8 +453,6 @@ var clientSshKeySignCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error: failed to write token: %v", err)
 		}
-
-		return
 	},
 }
 
@@ -677,7 +669,7 @@ var clientLoginCmd = &cobra.Command{
 				break
 			}
 		}
-		if foundProcess == false {
+		if !foundProcess {
 			fmt.Println("Service not running! Please start the service using:")
 			fmt.Println("sudo " + os.Args[0] + " client service start")
 			return
@@ -846,14 +838,14 @@ func validateClientToken(token string) (email string, err error) {
 	if _, ok := claims["user_email"]; ok {
 		userEmail = claims["user_email"].(string)
 	} else {
-		return userEmail, fmt.Errorf("Can't find claim for user_email")
+		return userEmail, fmt.Errorf("can't find claim for user_email")
 	}
 
 	now := time.Now().Unix()
-	if claims.VerifyExpiresAt(now, false) == false {
+	if !claims.VerifyExpiresAt(now, false) {
 		exp := claims["exp"].(float64)
 		delta := time.Unix(now, 0).Sub(time.Unix(int64(exp), 0))
-		return userEmail, fmt.Errorf("Token Expired. token for %s expired %v ago", userEmail, delta)
+		return userEmail, fmt.Errorf("token Expired. token for %s expired %v ago", userEmail, delta)
 	}
 	return userEmail, nil
 }
@@ -874,7 +866,7 @@ func clientTokenfile(homedir string) string {
 func getClientToken(homedir string) (string, error) {
 	if _, err := os.Stat(clientTokenfile(homedir)); os.IsNotExist(err) {
 		fmt.Println(clientTokenfile(homedir))
-		return "", errors.New(fmt.Sprintf("Please login first (no token found in " + clientTokenfile(homedir) + ")"))
+		return "", fmt.Errorf("please login first (no token found in " + clientTokenfile(homedir) + ")")
 	}
 	content, err := ioutil.ReadFile(clientTokenfile(homedir))
 	if err != nil {
@@ -950,7 +942,7 @@ func update_dns(homedir string) (refreshInt int, err error) {
 	}
 
 	for _, resource := range dnsDomains.DomainResources {
-		if resource.Private_socket == true {
+		if resource.Private_socket {
 			for _, domain := range resource.Domains {
 				stdlog.Println(domain, resource.IpAddress)
 				hosts.AddHost(resource.IpAddress, domain)
@@ -1095,7 +1087,7 @@ func getCert(token string, socketDNS string, email string) *CertificateResponse 
 	// sign cert request
 	jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
 	body := bytes.NewBuffer(jv)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", mysocket_api_url, socketDNS), body)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", mysocket_api_url, socketDNS), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -1160,7 +1152,7 @@ func genSshKey(token string, socketDNS string) *SshSignResponse {
 	//post signing request
 	jv, _ := json.Marshal(SshSignRequest{SshPublicKey: strings.TrimRight(string(data), "\n")})
 	body := bytes.NewBuffer(jv)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/ssh", mysocket_api_url, socketDNS), body)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/ssh", mysocket_api_url, socketDNS), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
 

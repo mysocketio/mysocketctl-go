@@ -24,7 +24,7 @@ import (
 
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // loginCmd represents the login command
@@ -61,7 +61,7 @@ var loginCmd = &cobra.Command{
 		// If password is not provided, then prompt for it.
 		if password == "" {
 			fmt.Print("Password: ")
-			bytesPassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+			bytesPassword, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				fmt.Printf("Error getting password from prompt: %s \n", err)
 				os.Exit(1)

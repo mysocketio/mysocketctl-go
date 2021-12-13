@@ -224,7 +224,7 @@ var socketShowCmd = &cobra.Command{
 }
 
 func getSockets(toComplete string) []string {
-	var r []string
+	var socketIDs []string
 
 	client, err := http.NewClient()
 	if err != nil {
@@ -239,11 +239,11 @@ func getSockets(toComplete string) []string {
 
 	for _, s := range sockets {
 		if strings.HasPrefix(s.SocketID, toComplete) {
-			r = append(r, s.SocketID)
+			socketIDs = append(socketIDs, s.SocketID)
 		}
 	}
 
-	return r
+	return socketIDs
 }
 
 func init() {

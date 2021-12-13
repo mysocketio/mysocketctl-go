@@ -156,10 +156,10 @@ var tunnelConnectCmd = &cobra.Command{
 }
 
 func getTunnels(toComplete string) []string {
-	var r []string
+	var tunnelIDs []string
 
 	if socketID == "" {
-		return r
+		return tunnelIDs
 	}
 
 	client, err := http.NewClient()
@@ -175,11 +175,11 @@ func getTunnels(toComplete string) []string {
 
 	for _, t := range tunnels {
 		if strings.HasPrefix(t.TunnelID, toComplete) {
-			r = append(r, t.TunnelID)
+			tunnelIDs = append(tunnelIDs, t.TunnelID)
 		}
 	}
 
-	return r
+	return tunnelIDs
 }
 
 func init() {

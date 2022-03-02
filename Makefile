@@ -5,7 +5,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BINARY_NAME=mysocketctl
-BUCKET=mysocketctl
+BUCKET=pub-mysocketctl-bin
 
 DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 VERSION := $(shell git describe --long --dirty --tags)

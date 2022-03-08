@@ -98,8 +98,16 @@ var connectCmd = &cobra.Command{
 		}
 
 		upstreamType := strings.ToLower(upstream_type)
-		if upstreamType != "http" && upstreamType != "https" && upstreamType != "" {
-			log.Fatalf("error: --upstream_type should be either http, https")
+		if socketType == "http" || socketType == "https" {
+			if upstreamType != "http" && upstreamType != "https" && upstreamType != "" {
+				log.Fatalf("error: --upstream_type should be either http, https")
+			}
+		}
+
+		if socketType == "database" {
+			if upstreamType != "tls" && upstreamType != "" {
+				log.Fatalf("error: --upstream_type should be tls or unset")
+			}
 		}
 
 		connection := &http.Socket{
@@ -151,7 +159,7 @@ var connectCmd = &cobra.Command{
 		}()
 
 		SetRlimit()
-		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost)
+		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version)
 		fmt.Println("cleaning up...")
 		client, err = http.NewClient()
 

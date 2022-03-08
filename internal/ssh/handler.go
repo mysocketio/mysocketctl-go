@@ -155,7 +155,7 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 	return certSigner
 }
 
-func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string) error {
+func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string) error {
 	tunnel, err := mysocketctlhttp.GetTunnel(socketID, tunnelID)
 
 	if err != nil {
@@ -166,6 +166,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		User:            userID,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         defaultTimeout,
+		ClientVersion:   fmt.Sprintf("SSH-2.0-Mysocketctl-%s", version),
 	}
 	var keyFiles []string
 	var signers []ssh.Signer

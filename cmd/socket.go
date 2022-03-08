@@ -146,9 +146,17 @@ var socketCreateCmd = &cobra.Command{
 		}
 
 		upstreamType := strings.ToLower(upstream_type)
-		if upstreamType != "http" && upstreamType != "https" && upstreamType != "" {
-			log.Fatalf("error: --upstream_type should be either http, https")
+		if socketType == "http" || socketType == "https" {
+			if upstreamType != "http" && upstreamType != "https" && upstreamType != "" {
+				log.Fatalf("error: --upstream_type should be either http, https")
+			}
 		}
+
+                if socketType == "database" {
+                        if upstreamType != "tls" && upstreamType != "" {
+                                log.Fatalf("error: --upstream_type should be tls or unset")
+                        }
+                }
 
 		client, err := http.NewClient()
 		if err != nil {

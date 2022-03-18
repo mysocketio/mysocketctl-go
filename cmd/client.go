@@ -56,8 +56,6 @@ import (
 )
 
 const (
-	mysocket_mtls_url   = "https://mtls.edge.mysocket.io"
-	mysocket_api_url    = "https://api.mysocket.io"
 	mysocket_succes_url = "https://mysocket.io/succes-message/"
 	mysocket_fail_url   = "https://mysocket.io/fail-message/"
 
@@ -65,6 +63,8 @@ const (
 	service_name        = "mysocket_service"
 	service_description = "MySocket.io Service"
 )
+
+var mysocket_mtls_url, mysocket_api_url string
 
 type Service struct {
 	daemon.Daemon
@@ -1186,6 +1186,14 @@ func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
 
+	if os.Getenv("MYSOCKET_ENV") == "staging" {
+		mysocket_mtls_url = "https://mtls.edge.staging.mysocket.io"
+		mysocket_api_url = "https://api.staging.mysocket.io/api/v1"
+	} else {
+		mysocket_mtls_url = "https://mtls.edge.mysocket.io"
+		mysocket_api_url = "https://api.mysocket.io"
+	}
+
 	rootCmd.AddCommand(clientCmd)
 	clientCmd.AddCommand(clientTlsCmd)
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
@@ -1219,6 +1227,7 @@ func init() {
 	clientSshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
 	clientSshCmd.MarkFlagRequired("host")
 	clientSshCmd.MarkFlagRequired("username")
+
 }
 
 // termSize gets the current window size and returns it in a window-change friendly

@@ -53,14 +53,14 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	mysocket_mtls_url = "https://mtls.edge.mysocket.io"
-	mysocket_api_url  = "https://api.mysocket.io"
 
+const (
 	// for Service
 	service_name        = "mysocket_service"
 	service_description = "MySocket.io Service"
 )
+
+var mysocket_mtls_url, mysocket_api_url string
 
 type Service struct {
 	daemon.Daemon
@@ -980,6 +980,14 @@ func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
 
+	if os.Getenv("MYSOCKET_ENV") == "staging" {
+		mysocket_mtls_url = "https://mtls.edge.staging.mysocket.io"
+		mysocket_api_url = "https://api.staging.mysocket.io/api/v1"
+	} else {
+		mysocket_mtls_url = "https://mtls.edge.mysocket.io"
+		mysocket_api_url = "https://api.mysocket.io"
+	}
+
 	rootCmd.AddCommand(clientCmd)
 	clientCmd.AddCommand(clientTlsCmd)
 	clientTlsCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
@@ -1014,7 +1022,10 @@ func init() {
 	clientSshCmd.MarkFlagRequired("host")
 	clientSshCmd.MarkFlagRequired("username")
 
+<<<<<<< HEAD
 	db.AddCommandsTo(clientCmd)
+=======
+>>>>>>> 866b514 (feat: add environment support with MYSOCKET_ENV var)
 }
 
 // termSize gets the current window size and returns it in a window-change friendly

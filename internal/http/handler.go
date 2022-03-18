@@ -15,12 +15,19 @@ import (
 )
 
 const (
-	mysocketurl  = "https://api.mysocket.io"
 	download_url = "https://download.edge.mysocket.io"
 )
 
 type Client struct {
 	token string
+}
+
+func apiUrl() string {
+	if os.Getenv("MYSOCKET_ENV") == "staging" {
+		return "https://api.staging.mysocket.io/api/v1"
+	} else {
+		return "https://api.mysocket.io"
+	}
 }
 
 func tokenfile() string {
@@ -48,7 +55,7 @@ func (c *Client) Request(method string, url string, target interface{}, data int
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
-	req, err := h.NewRequest(method, fmt.Sprintf("%s/%s", mysocketurl, url), body)
+	req, _ := h.NewRequest(method, fmt.Sprintf("%s/%s", apiUrl(), url), body)
 	req.Header.Add("x-access-token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	client := &h.Client{}
@@ -60,12 +67,12 @@ func (c *Client) Request(method string, url string, target interface{}, data int
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 {
-		return errors.New(fmt.Sprintf("No valid token, Please login"))
+		return errors.New("no valid token, Please login")
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 204 {
 		responseData, _ := ioutil.ReadAll(resp.Body)
-		return errors.New(fmt.Sprintf("Failed to create object (%d) %v", resp.StatusCode, string(responseData)))
+		return fmt.Errorf("failed to create object (%d) %v", resp.StatusCode, string(responseData))
 	}
 
 	if resp.StatusCode == 204 {
@@ -74,7 +81,7 @@ func (c *Client) Request(method string, url string, target interface{}, data int
 
 	err = json.NewDecoder(resp.Body).Decode(target)
 	if err != nil {
-		return errors.New("Failed to decode data")
+		return errors.New("failed to decode data")
 	}
 
 	return nil
@@ -120,7 +127,7 @@ func Login(email, password string) error {
 
 	requestReader := bytes.NewReader(buf)
 
-	resp, err := h.Post(mysocketurl+"/login", "application/json", requestReader)
+	resp, err := h.Post(apiUrl()+"/login", "application/json", requestReader)
 	if err != nil {
 		return err
 	}
@@ -165,7 +172,7 @@ func Register(name, email, password, sshkey string) error {
 		return err
 	}
 	requestReader := bytes.NewReader(buf)
-	resp, err := h.Post(mysocketurl+"/user", "application/json", requestReader)
+	resp, err := h.Post(apiUrl()+"/user", "application/json", requestReader)
 	if err != nil {
 		return err
 	}
@@ -174,14 +181,14 @@ func Register(name, email, password, sshkey string) error {
 
 	if resp.StatusCode != 200 {
 		responseData, _ := ioutil.ReadAll(resp.Body)
-		return errors.New(fmt.Sprintf("failed to register user %d\n%v", resp.StatusCode, string(responseData)))
+		return fmt.Errorf("failed to register user %d\n%v", resp.StatusCode, string(responseData))
 	}
 	return nil
 }
 
 func GetLatestVersion() (string, error) {
 	client := &h.Client{}
-	req, err := h.NewRequest("GET", download_url+"/latest_version.txt", nil)
+	req, _ := h.NewRequest("GET", download_url+"/latest_version.txt", nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -190,7 +197,7 @@ func GetLatestVersion() (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", errors.New(fmt.Sprintf("Version check failed. Failed to get latest version (%d)", resp.StatusCode))
+		return "", fmt.Errorf("version check failed. Failed to get latest version (%d)", resp.StatusCode)
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -229,12 +236,12 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 		bin_url = download_url + "/windows_amd64/mysocketctl.exe"
 		checksum_url = download_url + "/windows_amd64/sha256-checksum.txt"
 	default:
-		return "", nil, errors.New(fmt.Sprintf("unknown OS: %s", osname))
+		return "", nil, fmt.Errorf("unknown OS: %s", osname)
 	}
 
 	client := &h.Client{}
 	// Download checksum
-	req, err := h.NewRequest("GET", checksum_url, nil)
+	req, _ := h.NewRequest("GET", checksum_url, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", nil, err
@@ -243,7 +250,7 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", nil, errors.New(fmt.Sprintf("Failed to get latest checksum version (%d)", resp.StatusCode))
+		return "", nil, fmt.Errorf("failed to get latest checksum version (%d)", resp.StatusCode)
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -255,7 +262,7 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 	checksum = strings.TrimSuffix(checksum, "\n")
 
 	// Download binary
-	req, err = h.NewRequest("GET", bin_url, nil)
+	req, _ = h.NewRequest("GET", bin_url, nil)
 	resp, err = client.Do(req)
 	if err != nil {
 		return "", nil, err
@@ -264,7 +271,7 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", nil, errors.New(fmt.Sprintf("Failed to get latest version (%d)", resp.StatusCode))
+		return "", nil, fmt.Errorf("failed to get latest version (%d)", resp.StatusCode)
 	}
 
 	bodyBytes, err2 := ioutil.ReadAll(resp.Body)
@@ -276,7 +283,7 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 
 func GetToken() (string, error) {
 	if _, err := os.Stat(tokenfile()); os.IsNotExist(err) {
-		return "", errors.New(fmt.Sprintf("Please login first (no token found)"))
+		return "", errors.New("please login first (no token found)")
 	}
 	content, err := ioutil.ReadFile(tokenfile())
 	if err != nil {
@@ -295,7 +302,7 @@ func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
 	}
 
 	client := &h.Client{}
-	req, err := h.NewRequest("GET", mysocketurl+"/socket/"+socketID+"/tunnel/"+tunnelID, nil)
+	req, _ := h.NewRequest("GET", apiUrl()+"/socket/"+socketID+"/tunnel/"+tunnelID, nil)
 	req.Header.Add("x-access-token", token)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -305,12 +312,12 @@ func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("Failed to get tunnel (%d)", resp.StatusCode))
+		return nil, fmt.Errorf("failed to get tunnel (%d)", resp.StatusCode)
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&tunnel)
 	if err != nil {
-		return nil, errors.New("Failed to decode tunnel response")
+		return nil, errors.New("failed to decode tunnel response")
 	}
 	return &tunnel, nil
 }

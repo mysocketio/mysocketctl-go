@@ -27,8 +27,7 @@ import (
 )
 
 const (
-	mySocketSSHServer = "ssh.mysocket.io"
-	defaultTimeout    = 30 * time.Second
+	defaultTimeout = 30 * time.Second
 )
 
 var (
@@ -41,6 +40,14 @@ type httpProxy struct {
 	username string
 	password string
 	forward  proxy.Dialer
+}
+
+func sshServer() string {
+	if os.Getenv("MYSOCKET_SSH") != "" {
+		return os.Getenv("MYSOCKET_SSH") 
+	} else {
+		return "ssh.mysocket.io"
+	}
 }
 
 func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) {
@@ -77,7 +84,7 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 		}
 
 		keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
-		err = ioutil.WriteFile(fmt.Sprintf("%s", privateKeyFile), keyPem, 0600)
+		err = ioutil.WriteFile(privateKeyFile, keyPem, 0600)
 		if err != nil {
 			log.Fatalf("Error: failed to write ssh key: %v", err)
 		}
@@ -147,7 +154,7 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 		log.Fatalf("Error failed to cast to certificate: %v", err)
 	}
 	//log.Println(cert.ValidPrincipals[0])
-	clientKey, err := ssh.ParsePrivateKey(keyContent)
+	clientKey, _ := ssh.ParsePrivateKey(keyContent)
 	certSigner, err := ssh.NewCertSigner(cert, clientKey)
 	if err != nil {
 		log.Fatalf("NewCertSigner: %v", err)
@@ -223,7 +230,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 			log.Fatal("No ssh keys found for authenticating..")
 		}
 
-		fmt.Println("\nConnecting to Server: " + mySocketSSHServer + "\n")
+		fmt.Println("\nConnecting to Server: " + sshServer() + "\n")
 		time.Sleep(1 * time.Second)
 
 		/*
@@ -246,12 +253,12 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 			}
 			proxy.RegisterDialerType("http", newHttpProxy)
 			proxy.RegisterDialerType("https", newHttpProxy)
-			proxyDialer, err = proxy.FromURL(proxyURL, proxy.Direct)
+			proxyDialer, _ = proxy.FromURL(proxyURL, proxy.Direct)
 		} else {
 			proxyDialer = proxy.Direct
 		}
 
-		remoteHost := net.JoinHostPort(mySocketSSHServer, "22")
+		remoteHost := net.JoinHostPort(sshServer(), "22")
 		// Dial to host:port
 		conn, err := proxyDialer.Dial("tcp", remoteHost)
 		if err != nil {
@@ -439,7 +446,7 @@ func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
 	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		c.Close()
-		err = fmt.Errorf("Connect server using proxy error, StatusCode [%d]", resp.StatusCode)
+		err = fmt.Errorf("connect server using proxy error, StatusCode [%d]", resp.StatusCode)
 		return nil, err
 	}
 

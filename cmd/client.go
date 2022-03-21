@@ -20,10 +20,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
@@ -34,7 +32,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/user"
 	"regexp"
 	"runtime"
@@ -48,18 +45,17 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/shirou/gopsutil/process"
 
+	"github.com/mysocketio/mysocketctl-go/cmd/client/db"
+	"github.com/mysocketio/mysocketctl-go/internal/client"
 	mhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/net/context"
 )
 
 const (
-	mysocket_mtls_url   = "https://mtls.edge.mysocket.io"
-	mysocket_api_url    = "https://api.mysocket.io"
-	mysocket_succes_url = "https://mysocket.io/succes-message/"
-	mysocket_fail_url   = "https://mysocket.io/fail-message/"
+	mysocket_mtls_url = "https://mtls.edge.mysocket.io"
+	mysocket_api_url  = "https://api.mysocket.io"
 
 	// for Service
 	service_name        = "mysocket_service"
@@ -74,15 +70,6 @@ var stdlog, errlog *log.Logger
 
 //   dependencies that are NOT required by the service, but might be used
 var service_dependencies = []string{}
-
-type CertificateSigningRequest struct {
-	Csr string `json:"csr"`
-}
-
-type CertificateResponse struct {
-	PrivateKey  string `json:"client_private_key,omitempty"`
-	Certificate string `json:"client_certificate,omitempty"`
-}
 
 type SshSignRequest struct {
 	SshPublicKey string `json:"ssh_public_key"`
@@ -106,96 +93,14 @@ var clientCertCmd = &cobra.Command{
 var clientCertFetchCmd = &cobra.Command{
 	Use:   "fetch",
 	Short: "Fetch Client certificate",
-	Run: func(cmd *cobra.Command, args []string) {
-		if hostname == "" {
-			log.Fatalf("error: empty hostname not allowed")
-		}
-
-		// Check if we already have a valid token
-		token_content := ""
-
-		tokenfile := mtls_tokenfile(hostname)
-		if _, err := os.Stat(tokenfile); os.IsNotExist(err) {
-			// Does not exist
-		} else {
-			// read token from file
-			content, _ := ioutil.ReadFile(tokenfile)
-			if err == nil {
-				tokenString := strings.TrimRight(string(content), "\n")
-				tmp_jwt_token, _ := jwt.Parse(tokenString, nil)
-				if tmp_jwt_token != nil {
-
-					claims := tmp_jwt_token.Claims.(jwt.MapClaims)
-					exp := int64(claims["exp"].(float64))
-					//  subtract 10secs from token, for expected work time
-					//  If token time is larger then current time we're good
-					if exp-10 > time.Now().Unix() {
-						token_content = tokenString
-					}
-				}
-			}
-		}
-
-		if token_content == "" {
-			listener, err := net.Listen("tcp", "localhost:")
-			if err != nil {
-				log.Fatalln("Error: Unable to start local http listener.")
-			}
-
-			local_port := listener.Addr().(*net.TCPAddr).Port
-			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
-			token_content = launch(url, listener)
-		}
-
-		jwt_token, err := jwt.Parse(token_content, nil)
-		if jwt_token == nil {
-			log.Fatalf("couldn't parse token: %v", err.Error())
-		}
-
-		claims := jwt_token.Claims.(jwt.MapClaims)
-		if _, ok := claims["user_email"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for user_email")
-		}
-
-		if _, ok := claims["socket_dns"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for socket_dns")
-		}
-
-		var cert *CertificateResponse
-		if token_content != "" {
-			cert = getCert(token_content, claims["socket_dns"].(string), claims["user_email"].(string))
-		} else {
-			log.Fatalln("Error: Login failed")
-		}
-
-		socketDNS := claims["socket_dns"]
-		home, err := os.UserHomeDir()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		crtPath, keyPath, _, err := client.FetchCertAndReturnPaths(hostname, port)
 		if err != nil {
-			log.Fatalf("Error: failed to get homedir : %v", err)
+			return err
 		}
 
-		// create dir if not exists
-		if _, err := os.Stat(fmt.Sprintf("%s/.mysocketio", home)); os.IsNotExist(err) {
-			err := os.Mkdir(fmt.Sprintf("%s/.mysocketio", home), 0700)
-			if err != nil {
-				log.Fatalf("Error: failed to create directory %s/.mysocketio : %v", home, err)
-			}
-		}
-
-		err = ioutil.WriteFile(fmt.Sprintf("%s/.mysocketio/%s.key", home, socketDNS), []byte(cert.PrivateKey), 0600)
-		if err != nil {
-			log.Fatalf("Error: failed to write key file : %v", err)
-		}
-
-		err = ioutil.WriteFile(fmt.Sprintf("%s/.mysocketio/%s.crt", home, socketDNS), []byte(cert.Certificate), 0600)
-		if err != nil {
-			log.Fatalf("Error: failed to write certificate file : %v", err)
-		}
-
-		fmt.Printf("Client certificate file: %s/.mysocketio/%s.crt and key %s/.mysocketio/%s.key\n", home, socketDNS, home, socketDNS)
-
+		fmt.Println("Client certificate file:", crtPath, "and", keyPath)
+		return nil
 	},
 }
 
@@ -219,7 +124,7 @@ var clientSshCmd = &cobra.Command{
 
 		local_port := listener.Addr().(*net.TCPAddr).Port
 		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
-		token := launch(url, listener)
+		token := client.Launch(url, listener)
 
 		jwt_token, err := jwt.Parse(token, nil)
 		if jwt_token == nil {
@@ -238,7 +143,7 @@ var clientSshCmd = &cobra.Command{
 		}
 
 		sshCert := genSshKey(token, claims["socket_dns"].(string))
-		cert := getCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
+		cert := client.GetCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
 		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
 		if err != nil {
 			log.Fatalf("Error: unable to load certificate: %s", err)
@@ -405,7 +310,7 @@ var clientSshKeySignCmd = &cobra.Command{
 
 		local_port := listener.Addr().(*net.TCPAddr).Port
 		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
-		token := launch(url, listener)
+		token := client.Launch(url, listener)
 
 		jwt_token, err := jwt.Parse(token, nil)
 		if jwt_token == nil {
@@ -437,7 +342,7 @@ var clientSshKeySignCmd = &cobra.Command{
 		}
 
 		// Also write token, for future use
-		tokenfile := mtls_tokenfile(hostname)
+		tokenfile := client.MTLSTokenFile(hostname)
 		f, _ := os.Create(tokenfile)
 
 		if err != nil {
@@ -478,7 +383,7 @@ var clientTlsCmd = &cobra.Command{
 		// Check if we already have a valid token
 		token_content := ""
 
-		tokenfile := mtls_tokenfile(hostname)
+		tokenfile := client.MTLSTokenFile(hostname)
 		if _, err := os.Stat(tokenfile); os.IsNotExist(err) {
 			// Does not exist
 		} else {
@@ -509,7 +414,7 @@ var clientTlsCmd = &cobra.Command{
 
 			local_port := listener.Addr().(*net.TCPAddr).Port
 			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
-			token_content = launch(url, listener)
+			token_content = client.Launch(url, listener)
 		}
 
 		jwt_token, err := jwt.Parse(token_content, nil)
@@ -528,9 +433,9 @@ var clientTlsCmd = &cobra.Command{
 			log.Fatalf("Can't find claim for socket_dns")
 		}
 
-		var cert *CertificateResponse
+		var cert *client.CertificateResponse
 		if token_content != "" {
-			cert = getCert(token_content, claims["socket_dns"].(string), claims["user_email"].(string))
+			cert = client.GetCert(token_content, claims["socket_dns"].(string), claims["user_email"].(string))
 		} else {
 			log.Fatalln("Error: Login failed")
 		}
@@ -607,7 +512,7 @@ var clientLoginCmd = &cobra.Command{
 
 			local_port := listener.Addr().(*net.TCPAddr).Port
 			url := fmt.Sprintf("%s/client/auth/org/%s?port=%d", mysocket_mtls_url, orgId, local_port)
-			token_content = launch(url, listener)
+			token_content = client.Launch(url, listener)
 		}
 
 		jwt_token, err := jwt.Parse(token_content, nil)
@@ -816,6 +721,14 @@ func (service *Service) Manage() (string, error) {
 			return service.Start()
 		case "stop":
 			return service.Stop()
+		case "restart":
+			resultFromStop, err := service.Stop()
+			if err != nil {
+				return resultFromStop, err
+			}
+			resultFromStart, err := service.Start()
+			result := resultFromStop + "\n" + resultFromStart
+			return result, err
 		case "status":
 			return service.Status()
 		default:
@@ -959,16 +872,6 @@ func update_dns(homedir string) (refreshInt int, err error) {
 
 }
 
-func mtls_tokenfile(dnsname string) string {
-	tokenfile := ""
-	if runtime.GOOS == "windows" {
-		tokenfile = fmt.Sprintf("%s/.mysocketio_token_%s", os.Getenv("APPDATA"), dnsname)
-	} else {
-		tokenfile = fmt.Sprintf("%s/.mysocketio_token_%s", os.Getenv("HOME"), dnsname)
-	}
-	return tokenfile
-}
-
 func tcp_con_handle(con net.Conn, in io.Reader, out io.Writer) {
 	chan_to_stdout := stream_copy(con, out)
 	chan_to_remote := stream_copy(in, con)
@@ -1007,115 +910,6 @@ func stream_copy(src io.Reader, dst io.Writer) <-chan int {
 		}
 	}()
 	return sync_channel
-}
-
-func launch(url string, listener net.Listener) string {
-	c := make(chan string)
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		url := r.URL
-		q := url.Query()
-
-		w.Header().Set("Content-Type", "text/html")
-
-		if q.Get("token") != "" {
-			w.Header().Set("Location", mysocket_succes_url)
-			w.WriteHeader(302)
-			c <- q.Get("token")
-		} else {
-			if q.Get("error") == "org_not_found" {
-				w.Header().Set("Location", mysocket_fail_url)
-
-			} else {
-				w.Header().Set("Location", mysocket_fail_url)
-			}
-			w.WriteHeader(302)
-			c <- ""
-		}
-	})
-
-	srv := &http.Server{}
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	defer srv.Shutdown(ctx)
-
-	go func() {
-		srv.Serve(listener)
-	}()
-
-	var token string
-	if openBrowser(url) {
-		token = <-c
-	}
-	if token == "" {
-		log.Fatalln("Error:  login failed")
-	}
-	return token
-}
-
-func openBrowser(url string) bool {
-	var args []string
-	switch runtime.GOOS {
-	case "darwin":
-		args = []string{"open"}
-	case "windows":
-		args = []string{"cmd", "/c", "start"}
-	default:
-		args = []string{"xdg-open"}
-	}
-
-	cmd := exec.Command(args[0], append(args[1:], url)...)
-	return cmd.Start() == nil
-}
-
-func getCert(token string, socketDNS string, email string) *CertificateResponse {
-	// generate key
-	keyBytes, _ := rsa.GenerateKey(rand.Reader, 2048)
-
-	// generate csr
-	template := x509.CertificateRequest{
-		Subject: pkix.Name{
-			CommonName:   email,
-			Organization: []string{socketDNS},
-		},
-		EmailAddresses: []string{email},
-		DNSNames:       []string{socketDNS},
-	}
-	csrBytes, _ := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
-	csrPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
-	privateKey := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(keyBytes)})
-
-	// sign cert request
-	jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
-	body := bytes.NewBuffer(jv)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", mysocket_api_url, socketDNS), body)
-	req.Header.Add("x-access-token", token)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error in request: %v", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 {
-		log.Fatalln("Error: No valid token, Please login")
-	}
-
-	if resp.StatusCode != 200 {
-		log.Fatalln("Error: Failed to get cert")
-	}
-
-	cert := &CertificateResponse{}
-	err = json.NewDecoder(resp.Body).Decode(cert)
-	if err != nil {
-		log.Fatalln("Error: Failed to decode certificate")
-	}
-
-	cert.PrivateKey = string(privateKey)
-
-	return cert
 }
 
 func genSshKey(token string, socketDNS string) *SshSignResponse {
@@ -1219,6 +1013,8 @@ func init() {
 	clientSshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
 	clientSshCmd.MarkFlagRequired("host")
 	clientSshCmd.MarkFlagRequired("username")
+
+	db.AddCommandsTo(clientCmd)
 }
 
 // termSize gets the current window size and returns it in a window-change friendly

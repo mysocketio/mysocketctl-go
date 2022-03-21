@@ -47,7 +47,6 @@ import (
 
 	"github.com/mysocketio/mysocketctl-go/cmd/client/db"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
-	mhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
 	"golang.org/x/crypto/ssh"
@@ -497,52 +496,7 @@ var clientLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login and get API token so service can authenticate",
 	Run: func(cmd *cobra.Command, args []string) {
-		if orgId == "" {
-			log.Fatalf("error: empty org not allowed")
-		}
-
-		token_content := ""
-		if token_content == "" {
-
-			listener, err := net.Listen("tcp", "localhost:")
-			if err != nil {
-				log.Fatalln("Error: Unable to start local http listener.")
-			}
-
-			local_port := listener.Addr().(*net.TCPAddr).Port
-			url := fmt.Sprintf("%s/client/auth/org/%s?port=%d", mysocket_mtls_url, orgId, local_port)
-			token_content = client.Launch(url, listener)
-		}
-
-		jwt_token, err := jwt.Parse(token_content, nil)
-		if jwt_token == nil {
-			log.Fatalf("couldn't parse token: %v", err.Error())
-		}
-
-		claims := jwt_token.Claims.(jwt.MapClaims)
-		if _, ok := claims["user_email"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for user_email")
-		}
-
-		u, err := user.Current()
-		if err != nil {
-			log.Fatal(err)
-		}
-		// Write to clientTokenfile
-		f, err := os.Create(clientTokenfile(u.HomeDir))
-		if err != nil {
-			log.Fatalf("couldn't write token: %v", err.Error())
-		}
-		defer f.Close()
-		if err := os.Chmod(clientTokenfile(u.HomeDir), 0600); err != nil {
-			log.Fatalf("couldn't change permission for token file: %v", err.Error())
-		}
-
-		_, err = f.WriteString(fmt.Sprintf("%s\n", token_content))
-		if err != nil {
-			log.Fatalf("couldn't write token to file: %v", err.Error())
-		}
+		client.Login(orgID)
 
 		// check if installed
 		switch runtime.GOOS {
@@ -580,7 +534,6 @@ var clientLoginCmd = &cobra.Command{
 		}
 
 		fmt.Println("Login successful")
-
 	},
 }
 
@@ -589,24 +542,13 @@ var clientLoginStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Check login status, see if token is still valid",
 	Run: func(cmd *cobra.Command, args []string) {
-		u, err := user.Current()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		token, err := getClientToken(u.HomeDir)
-		if err != nil {
-			errlog.Printf("couldn't get client token  %v", err.Error())
-		}
-
-		userEmail, err := validateClientToken(token)
-		if err != nil {
+		valid, _, email, err := client.IsExistingClientTokenValid("")
+		if !valid {
 			fmt.Println(err)
 			fmt.Println("Please login again: mysocketctl client login")
 		} else {
-			fmt.Println("Token Valid, logged in as " + userEmail)
+			fmt.Println("Token Valid, logged in as " + email)
 		}
-
 	},
 }
 
@@ -628,7 +570,7 @@ var clientDnsUpdaterCmd = &cobra.Command{
 
 		refresh_rate := 300
 		for {
-			refresh_rate, _ = update_dns(dnsupdater_homedir)
+			refresh_rate, _ = updateDNS(dnsupdater_homedir)
 			time.Sleep(time.Duration(refresh_rate) * time.Second)
 		}
 
@@ -739,103 +681,23 @@ func (service *Service) Manage() (string, error) {
 
 }
 
-func validateClientToken(token string) (email string, err error) {
-	userEmail := ""
-	jwt_token, err := jwt.Parse(token, nil)
-	if jwt_token == nil {
-		return userEmail, fmt.Errorf("couldn't parse token: %v", err.Error())
-	}
-
-	claims := jwt_token.Claims.(jwt.MapClaims)
-	if _, ok := claims["user_email"]; ok {
-		userEmail = claims["user_email"].(string)
-	} else {
-		return userEmail, fmt.Errorf("can't find claim for user_email")
-	}
-
-	now := time.Now().Unix()
-	if !claims.VerifyExpiresAt(now, false) {
-		exp := claims["exp"].(float64)
-		delta := time.Unix(now, 0).Sub(time.Unix(int64(exp), 0))
-		return userEmail, fmt.Errorf("token Expired. token for %s expired %v ago", userEmail, delta)
-	}
-	return userEmail, nil
-}
-
-func clientTokenfile(homedir string) string {
-	tokenfile := ""
-	if runtime.GOOS == "windows" {
-		// Not sure what this should be for windows... probably wont work as is
-		// service will run as admin, so not to adust this?
-		//tokenfile = fmt.Sprintf("%s/.mysocketio_client_token", os.Getenv("APPDATA"))
-		tokenfile = fmt.Sprintf("%s/.mysocketio_client_token", homedir)
-	} else {
-		tokenfile = fmt.Sprintf("%s/.mysocketio_client_token", homedir)
-	}
-	return tokenfile
-}
-
-func getClientToken(homedir string) (string, error) {
-	if _, err := os.Stat(clientTokenfile(homedir)); os.IsNotExist(err) {
-		fmt.Println(clientTokenfile(homedir))
-		return "", fmt.Errorf("please login first (no token found in " + clientTokenfile(homedir) + ")")
-	}
-	content, err := ioutil.ReadFile(clientTokenfile(homedir))
-	if err != nil {
-		return "", err
-	}
-
-	tokenString := strings.TrimRight(string(content), "\n")
-	return tokenString, nil
-}
-
-func update_dns(homedir string) (refreshInt int, err error) {
-
+func updateDNS(homedir string) (refreshInt int, err error) {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
 
-	//default refresh rate is 60secs
+	// default refresh rate is 60secs
 	refreshRate := 60
-	//Now get the DNS domains request
-	token, err := getClientToken(homedir)
-	if err != nil {
-		errlog.Printf("couldn't get client token  %v", err.Error())
-		return refreshRate, err
-	}
-
+	// Now get the DNS domains request
 	// check if we have a valid token before hitting API
-	_, err = validateClientToken(token)
-	if err != nil {
+	valid, token, _, err := client.IsExistingClientTokenValid(homedir)
+	if !valid {
 		errlog.Printf(err.Error())
 		return refreshRate, err
 	}
 
-	dnsDomains := mhttp.DnsDomains{}
-
-	client := http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/resources", mysocket_api_url), nil)
-	req.Header.Add("x-access-token", token)
-	resp, err := client.Do(req)
+	dnsDomains, err := client.FetchResources(token)
 	if err != nil {
-		errlog.Printf("couldn't request dnsrecords  %v", err.Error())
-		return refreshRate, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 {
-		errlog.Println("Error: No valid token, Please login")
-		return refreshRate, err
-	}
-
-	if resp.StatusCode != 200 {
-		errlog.Printf("Error: Failed to get DNS records.. HTTP code not 200 but %d", resp.StatusCode)
-		return refreshRate, err
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&dnsDomains)
-	if err != nil {
-		errlog.Printf("couldn't parse dnsrecords response  %v", err.Error())
+		errlog.Println("Error:", err)
 		return refreshRate, err
 	}
 
@@ -849,15 +711,15 @@ func update_dns(homedir string) (refreshInt int, err error) {
 		return refreshRate, err
 	}
 
-	for _, ipAddress := range dnsDomains.DefaultIpAddresses {
+	for _, ipAddress := range dnsDomains.DefaultIPAddresses {
 		hosts.RemoveAddress(ipAddress)
 	}
 
 	for _, resource := range dnsDomains.DomainResources {
-		if resource.Private_socket {
+		if resource.PrivateSocket {
 			for _, domain := range resource.Domains {
-				stdlog.Println(domain, resource.IpAddress)
-				hosts.AddHost(resource.IpAddress, domain)
+				stdlog.Println(domain, resource.IPAddress)
+				hosts.AddHost(resource.IPAddress, domain)
 			}
 		}
 	}
@@ -868,7 +730,6 @@ func update_dns(homedir string) (refreshInt int, err error) {
 		return refreshRate, err
 	}
 	return refreshRate, nil
-
 }
 
 func tcp_con_handle(con net.Conn, in io.Reader, out io.Writer) {
@@ -1004,7 +865,7 @@ func init() {
 	clientCertFetchCmd.MarkFlagRequired("host")
 
 	clientCmd.AddCommand(clientLoginCmd)
-	clientLoginCmd.Flags().StringVarP(&orgId, "org", "", "", "The mysocket organization id / email")
+	clientLoginCmd.Flags().StringVarP(&orgID, "org", "", "", "The mysocket organization id / email")
 	clientLoginCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientLoginCmd.MarkFlagRequired("org")
 

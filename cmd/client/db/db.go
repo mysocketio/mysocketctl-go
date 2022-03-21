@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
 	"github.com/mysocketio/mysocketctl-go/internal/client/mysqlworkbench"
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ var (
 )
 
 func AddCommandsTo(client *cobra.Command) {
+	client.AddCommand(dbCmd)
 	addOneCommandTo(mysqlCmd, client)
 	addOneCommandTo(mycliCmd, client)
 	addOneCommandTo(mysqlWorkbenchCmd, client)
@@ -31,10 +33,59 @@ func addOneCommandTo(cmdToAdd, cmdAddedTo *cobra.Command) {
 	cmdAddedTo.AddCommand(cmdToAdd)
 }
 
+func dbNameFrom(args []string) string {
+	var dbName string
+	if len(args) > 0 {
+		dbName = args[0]
+	}
+	return dbName
+}
+
+var dbCmd = &cobra.Command{
+	Use:   "db",
+	Short: "Pick a socket host and connect to it as a database",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			dbName string
+			err    error
+		)
+		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		if err != nil {
+			return err
+		}
+
+		var dbClient string
+		if err := survey.AskOne(&survey.Select{
+			Message: "choose a client:",
+			Options: []string{"mysql", "mysqlworkbench", "mycli", "dbeaver"},
+		}, &dbClient); err != nil {
+			return err
+		}
+
+		cmdToCall := "db:" + dbClient
+		foundCmd, _, err := cmd.Parent().Find([]string{cmdToCall})
+		if foundCmd.Use != cmdToCall || foundCmd.RunE == nil {
+			return fmt.Errorf("couldn't find client subcommand %s", cmdToCall)
+		}
+		if len(args) == 0 && dbName != "" {
+			args = append(args, dbName)
+		}
+		return foundCmd.RunE(foundCmd, args)
+	},
+}
+
 var mysqlCmd = &cobra.Command{
 	Use:   "db:mysql",
 	Short: "Connect to a database socket with MySQL client",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			dbName string
+			err    error
+		)
+		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		if err != nil {
+			return err
+		}
 		crtPath, keyPath, port, err := client.FetchCertAndReturnPaths(hostname, port)
 		if err != nil {
 			return err
@@ -45,7 +96,7 @@ var mysqlCmd = &cobra.Command{
 			"--protocol", "TCP",
 			"--ssl-cert", crtPath,
 			"--ssl-key", keyPath,
-			dbNameFrom(args),
+			dbName,
 		}...)
 	},
 }
@@ -54,6 +105,14 @@ var mycliCmd = &cobra.Command{
 	Use:   "db:mycli",
 	Short: "Connect to a database socket with mycli client",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			dbName string
+			err    error
+		)
+		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		if err != nil {
+			return err
+		}
 		crtPath, keyPath, port, err := client.FetchCertAndReturnPaths(hostname, port)
 		if err != nil {
 			return err
@@ -63,7 +122,7 @@ var mycliCmd = &cobra.Command{
 			"-P", fmt.Sprint(port),
 			"--ssl-cert", crtPath,
 			"--ssl-key", keyPath,
-			dbNameFrom(args),
+			dbName,
 		}...)
 	},
 }
@@ -72,6 +131,14 @@ var mysqlWorkbenchCmd = &cobra.Command{
 	Use:   "db:mysqlworkbench",
 	Short: "Connect to a database socket with MySQL Workbench",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			dbName string
+			err    error
+		)
+		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		if err != nil {
+			return err
+		}
 		crtPath, keyPath, port, err := client.FetchCertAndReturnPaths(hostname, port)
 		if err != nil {
 			return err
@@ -80,26 +147,27 @@ var mysqlWorkbenchCmd = &cobra.Command{
 		// for more info about mysql workbench command line options and config files, see:
 		// https://dev.mysql.com/doc/workbench/en/wb-command-line-options.html
 		// https://dev.mysql.com/doc/workbench/en/wb-configuring-files.html
-		xmlDoc, err := mysqlworkbench.ConnectionsXML(hostname, port, crtPath, keyPath, dbNameFrom(args))
+		xmlDoc, err := mysqlworkbench.ConnectionsXML(hostname, port, crtPath, keyPath, dbName)
 		if err != nil {
 			return err
 		}
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("Error: failed to get home dir : %w", err)
+			return fmt.Errorf("failed to get home dir : %w", err)
 		}
 		// create dir if not exists
 		configPath := filepath.Join(home, ".mysocketio", "mysqlworkbench")
 		if _, err := os.Stat(configPath); os.IsNotExist(err) {
 			if err := os.Mkdir(configPath, 0700); err != nil {
-				return fmt.Errorf("Error: failed to create directory %s : %w", configPath, err)
+				return fmt.Errorf("failed to create directory %s : %w", configPath, err)
 			}
 		}
 		xmlPath := filepath.Join(configPath, "connections.xml")
 		if err = ioutil.WriteFile(xmlPath, []byte(xmlDoc), 0600); err != nil {
-			return fmt.Errorf("Error: failed writing MySQL Workbench connections.xml file: %w", err)
+			return fmt.Errorf("failed writing MySQL Workbench connections.xml file: %w", err)
 		}
 
+		fmt.Println("Starting up MySQL Workbench...")
 		switch runtime.GOOS {
 		case "darwin":
 			return client.ExecCommand("open", "-a", "MySQLWorkbench", "--args", "--configdir", configPath)
@@ -115,6 +183,14 @@ var dbeaverCmd = &cobra.Command{
 	Use:   "db:dbeaver",
 	Short: "Connect to a database socket with dbeaver",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			dbName string
+			err    error
+		)
+		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		if err != nil {
+			return err
+		}
 		token, claims, err := client.MTLSLogin(hostname)
 		if err != nil {
 			return err
@@ -129,7 +205,7 @@ var dbeaverCmd = &cobra.Command{
 
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("Error: failed to get home dir : %w", err)
+			return fmt.Errorf("failed to get home dir : %w", err)
 		}
 		keyStorePath := filepath.Join(home, ".mysocketio", socketDNS+".jks")
 		client.WriteKeyStore(keyStore, keyStorePath, keyStorePassword)
@@ -146,7 +222,7 @@ var dbeaverCmd = &cobra.Command{
 		params := []string{
 			"host=" + hostname,
 			"port=" + fmt.Sprint(socketPort),
-			"database=" + dbNameFrom(args),
+			"database=" + dbName,
 			"prop.clientCertificateKeyStoreUrl=file:" + keyStorePath,
 			"prop.clientCertificateKeyStorePassword=" + string(keyStorePassword),
 			"driver=mysql5",
@@ -159,6 +235,7 @@ var dbeaverCmd = &cobra.Command{
 		}
 		conn := strings.Join(params, "|")
 
+		fmt.Println("Starting up DBeaver...")
 		switch runtime.GOOS {
 		case "darwin":
 			return client.ExecCommand("open", "-a", "dbeaver", "--args", "-con", conn)
@@ -168,12 +245,4 @@ var dbeaverCmd = &cobra.Command{
 			return client.ExecCommand("dbeaver", "-con", conn)
 		}
 	},
-}
-
-func dbNameFrom(args []string) string {
-	var dbName string
-	if len(args) > 0 {
-		dbName = args[0]
-	}
-	return dbName
 }

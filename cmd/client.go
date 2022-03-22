@@ -53,7 +53,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-
 const (
 	service_name        = "mysocket_service"
 	service_description = "MySocket.io Service"
@@ -1026,9 +1025,12 @@ func init() {
 	clientSshCmd.MarkFlagRequired("username")
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 	db.AddCommandsTo(clientCmd)
 =======
 >>>>>>> 866b514 (feat: add environment support with MYSOCKET_ENV var)
+=======
+>>>>>>> c1d02cec80339220903cea22272a170902c16558
 }
 
 // termSize gets the current window size and returns it in a window-change friendly

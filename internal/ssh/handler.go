@@ -319,9 +319,6 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 
 		if err := session.Wait(); err != nil {
 			log.Printf("ssh session error: %v", err)
-			session.Close()
-			listener.Close()
-			serverConn.Close()
 		}
 		serverConn.Close()
 	}
@@ -329,7 +326,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 
 func handleClient(client net.Conn, remote net.Conn) {
 	defer client.Close()
-	chDone := make(chan bool)
+	chDone := make(chan bool, 1)
 
 	// Start remote -> local data transfer
 	go func() {

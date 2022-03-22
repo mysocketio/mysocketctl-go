@@ -28,11 +28,25 @@ import (
 )
 
 const (
-	mysocketMTLSURL    = "https://mtls.edge.mysocket.io"
-	mysocketAPIURL     = "https://api.mysocket.io"
 	mysocketSuccessURL = "https://mysocket.io/succes-message/"
 	mysocketFailURL    = "https://mysocket.io/fail-message/"
 )
+
+func apiUrl() string {
+	if os.Getenv("MYSOCKET_API") != "" {
+		return os.Getenv("MYSOCKET_API")
+	} else {
+		return "https://api.mysocket.io"
+	}
+}
+
+func mtlsUrl() string {
+	if os.Getenv("MYSOCKET_MTLS") != "" {
+		return os.Getenv("MYSOCKET_MTLS")
+	} else {
+		return "https://mtls.edge.mysocket.io"
+	}
+}
 
 func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) {
 	if hostname == "" {
@@ -69,7 +83,7 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 		}
 
 		localPort := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocketMTLSURL, hostname, localPort)
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mtlsUrl(), hostname, localPort)
 		tokenContent = Launch(url, listener)
 	}
 
@@ -274,7 +288,7 @@ func GetCert(token string, socketDNS string, email string) *CertificateResponse 
 	// sign cert request
 	jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
 	body := bytes.NewBuffer(jv)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", mysocketAPIURL, socketDNS), body)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", apiUrl(), socketDNS), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
 

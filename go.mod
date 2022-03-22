@@ -11,6 +11,8 @@ require (
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
+	github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0
+	github.com/satori/go.uuid v1.2.0
 	github.com/shirou/gopsutil v3.21.6+incompatible
 	github.com/spf13/cobra v1.1.1
 	github.com/takama/daemon v1.0.0

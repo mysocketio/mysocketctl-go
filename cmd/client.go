@@ -55,7 +55,6 @@ import (
 
 
 const (
-	// for Service
 	service_name        = "mysocket_service"
 	service_description = "MySocket.io Service"
 )

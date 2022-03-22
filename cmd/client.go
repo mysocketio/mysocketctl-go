@@ -54,13 +54,12 @@ import (
 )
 
 const (
-	mysocket_mtls_url = "https://mtls.edge.mysocket.io"
-	mysocket_api_url  = "https://api.mysocket.io"
-
 	// for Service
 	service_name        = "mysocket_service"
 	service_description = "MySocket.io Service"
 )
+
+var mysocket_mtls_url, mysocket_api_url string
 
 type Service struct {
 	daemon.Daemon
@@ -979,6 +978,18 @@ func genSshKey(token string, socketDNS string) *SshSignResponse {
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+
+	if os.Getenv("MYSOCKET_API") != "" {
+		mysocket_api_url = os.Getenv("MYSOCKET_API")
+	} else {
+		mysocket_api_url = "https://api.mysocket.io"
+	}
+
+	if os.Getenv("MYSOCKET_MTLS") != "" {
+		mysocket_mtls_url = os.Getenv("MYSOCKET_MTLS")
+	} else {
+		mysocket_mtls_url = "https://mtls.edge.mysocket.io"
+	}
 
 	rootCmd.AddCommand(clientCmd)
 	clientCmd.AddCommand(clientTlsCmd)

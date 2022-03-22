@@ -23,8 +23,8 @@ type Client struct {
 }
 
 func apiUrl() string {
-	if os.Getenv("MYSOCKET_ENV") == "staging" {
-		return "https://api.staging.mysocket.io/api/v1"
+	if os.Getenv("MYSOCKET_API") != "" {
+		return os.Getenv("MYSOCKET_API")
 	} else {
 		return "https://api.mysocket.io"
 	}

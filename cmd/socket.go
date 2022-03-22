@@ -153,7 +153,7 @@ var socketCreateCmd = &cobra.Command{
 		}
 
                 if socketType == "database" {
-                        if upstreamType != "tls" && upstreamType != "" {
+                        if upstreamType != "tls" && upstreamType != "postgres" && upstreamType != "" {
                                 log.Fatalf("error: --upstream_type should be tls or unset")
                         }
                 }

@@ -43,8 +43,8 @@ type httpProxy struct {
 }
 
 func sshServer() string {
-	if os.Getenv("MYSOCKET_ENV") == "staging" {
-		return "ssh.staging.mysocket.io"
+	if os.Getenv("MYSOCKET_SSH") != "" {
+		return os.Getenv("MYSOCKET_SSH") 
 	} else {
 		return "ssh.mysocket.io"
 	}

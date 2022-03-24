@@ -33,19 +33,19 @@ const (
 )
 
 func apiUrl() string {
-       if os.Getenv("MYSOCKET_API") != "" {
-               return os.Getenv("MYSOCKET_API")
-       } else {
-               return "https://api.mysocket.io"
-       }
+	if os.Getenv("MYSOCKET_API") != "" {
+		return os.Getenv("MYSOCKET_API")
+	} else {
+		return "https://api.mysocket.io"
+	}
 }
 
 func mtlsUrl() string {
-       if os.Getenv("MYSOCKET_MTLS") != "" {
-               return os.Getenv("MYSOCKET_MTLS")
-       } else {
-               return "https://mtls.edge.mysocket.io"
-       }
+	if os.Getenv("MYSOCKET_MTLS") != "" {
+		return os.Getenv("MYSOCKET_MTLS")
+	} else {
+		return "https://mtls.edge.mysocket.io"
+	}
 }
 
 func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) {
@@ -54,10 +54,8 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 		return
 	}
 
-	// Check if we already have a valid token
-	var tokenContent string
-
 	tokenFile := MTLSTokenFile(hostname)
+	// Check if we already have a valid token
 	if _, err := os.Stat(tokenFile); err == nil {
 		// token file exists, read from file
 		content, _ := ioutil.ReadFile(tokenFile)
@@ -69,12 +67,12 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 			//  subtract 10secs from token, for expected work time
 			//  If token time is larger then current time we're good
 			if exp-10 > time.Now().Unix() {
-				tokenContent = tokenString
+				token = tokenString
 			}
 		}
 	}
 
-	if tokenContent == "" {
+	if token == "" {
 		var listener net.Listener
 		listener, err = net.Listen("tcp", "localhost:")
 		if err != nil {
@@ -84,7 +82,7 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 
 		localPort := listener.Addr().(*net.TCPAddr).Port
 		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mtlsUrl(), hostname, localPort)
-		tokenContent = Launch(url, listener)
+		token = Launch(url, listener)
 	}
 
 	// Also write token, for future use
@@ -98,12 +96,12 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 		return
 	}
 	defer f.Close()
-	if _, err = f.WriteString(fmt.Sprintf("%s\n", tokenContent)); err != nil {
+	if _, err = f.WriteString(fmt.Sprintf("%s\n", token)); err != nil {
 		err = fmt.Errorf("failed to write token: %w", err)
 		return
 	}
 
-	parsedJWT, err := jwt.Parse(tokenContent, nil)
+	parsedJWT, err := jwt.Parse(token, nil)
 	if parsedJWT == nil {
 		err = fmt.Errorf("couldn't parse token: %w", err)
 		return
@@ -117,11 +115,11 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 		err = errors.New("can't find claim for socket_dns")
 		return
 	}
-	if tokenContent == "" {
+	if token == "" {
 		err = errors.New("login failed")
 		return
 	}
-	return tokenContent, claims, nil
+	return token, claims, nil
 }
 
 func WriteCertToFile(cert *CertificateResponse, socketDNS string) (crtPath, keyPath string, err error) {
@@ -203,7 +201,8 @@ func MTLSTokenFile(dnsname string) string {
 func Launch(url string, listener net.Listener) string {
 	c := make(chan string)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL
 		q := url.Query()
 
@@ -225,17 +224,22 @@ func Launch(url string, listener net.Listener) string {
 		}
 	})
 
-	srv := &http.Server{}
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	defer srv.Shutdown(ctx)
+	srv := &http.Server{
+		Handler: mux,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	go func() {
-		srv.Serve(listener)
+		if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Error: unable to start login process - %s", err)
+		}
 	}()
 
 	var token string
 	if openBrowser(url) {
 		token = <-c
+		srv.Shutdown(ctx)
 	}
 	if token == "" {
 		log.Fatalln("Error: login failed")

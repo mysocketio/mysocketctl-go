@@ -105,8 +105,8 @@ var connectCmd = &cobra.Command{
 		}
 
 		if socketType == "database" {
-			if upstreamType != "tls" && upstreamType != "mysql" && upstreamType != "postgres" && upstreamType != "" {
-				log.Fatalf("error: --upstream_type should be tls for mysql tls or mysql or postgres, defaults to mysql")
+			if upstreamType != "mysql" && upstreamType != "postgres" && upstreamType != "" {
+				log.Fatalf("error: --upstream_type should be  mysql or postgres, defaults to mysql")
 			}
 		}
 
@@ -185,7 +185,7 @@ func init() {
 	connectCmd.Flags().StringVarP(&upstream_username, "upstream_username", "j", "", "Upstream username used to connect to upstream database")
 	connectCmd.Flags().StringVarP(&upstream_password, "upstream_password", "k", "", "Upstream password used to connect to upstream database")
 	connectCmd.Flags().StringVarP(&upstream_http_hostname, "upstream_http_hostname", "", "", "Upstream http hostname")
-	connectCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: Upstream type: http, https for http socket or mysql, tls (mysql), postgres for database sockets")
+	connectCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: Upstream type: http, https for http sockets or mysql, postgres for database sockets")
 	connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
 	connectCmd.MarkFlagRequired("port")
 	connectCmd.MarkFlagRequired("name")

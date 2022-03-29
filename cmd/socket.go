@@ -152,11 +152,11 @@ var socketCreateCmd = &cobra.Command{
 			}
 		}
 
-                if socketType == "database" {
-                        if upstreamType != "tls" && upstreamType != "postgres" && upstreamType != "" {
-                                log.Fatalf("error: --upstream_type should be tls or unset")
-                        }
-                }
+		if socketType == "database" {
+			if upstreamType != "mysql" && upstreamType != "postgres" && upstreamType != "" {
+				log.Fatalf("error: --upstream_type should be mysql or postgres, defaults to mysql")
+			}
+		}
 
 		client, err := http.NewClient()
 		if err != nil {
@@ -271,7 +271,7 @@ func init() {
 	socketCreateCmd.Flags().StringVarP(&upstream_username, "upstream_username", "j", "", "Upstream username used to connect to upstream database")
 	socketCreateCmd.Flags().StringVarP(&upstream_password, "upstream_password", "k", "", "Upstream password used to connect to upstream database")
 	socketCreateCmd.Flags().StringVarP(&upstream_http_hostname, "upstream_http_hostname", "", "", "Upstream http hostname")
-	socketCreateCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: http or https")
+	socketCreateCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: http, https for http sockets or mysql, postgres for database sockets")
 	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls, database")
 	socketCreateCmd.MarkFlagRequired("name")
 

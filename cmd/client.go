@@ -58,7 +58,7 @@ const (
 	service_description = "MySocket.io Service"
 )
 
-var mysocket_mtls_url, mysocket_api_url string
+var mysocket_api_url string
 
 type Service struct {
 	daemon.Daemon
@@ -121,7 +121,7 @@ var clientSshCmd = &cobra.Command{
 		}
 
 		local_port := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_api_url, hostname, local_port)
 		token := client.Launch(url, listener)
 
 		jwt_token, err := jwt.Parse(token, nil)
@@ -307,7 +307,7 @@ var clientSshKeySignCmd = &cobra.Command{
 		}
 
 		local_port := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_api_url, hostname, local_port)
 		token := client.Launch(url, listener)
 
 		jwt_token, err := jwt.Parse(token, nil)
@@ -404,14 +404,13 @@ var clientTlsCmd = &cobra.Command{
 		}
 
 		if token_content == "" {
-
 			listener, err := net.Listen("tcp", "localhost:")
 			if err != nil {
 				log.Fatalln("Error: Unable to start local http listener.")
 			}
 
 			local_port := listener.Addr().(*net.TCPAddr).Port
-			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_mtls_url, hostname, local_port)
+			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_api_url, hostname, local_port)
 			token_content = client.Launch(url, listener)
 		}
 
@@ -844,12 +843,6 @@ func init() {
 		mysocket_api_url = os.Getenv("MYSOCKET_API")
 	} else {
 		mysocket_api_url = "https://api.mysocket.io"
-	}
-
-	if os.Getenv("MYSOCKET_MTLS") != "" {
-		mysocket_mtls_url = os.Getenv("MYSOCKET_MTLS")
-	} else {
-		mysocket_mtls_url = "https://mtls.edge.mysocket.io"
 	}
 
 	rootCmd.AddCommand(clientCmd)

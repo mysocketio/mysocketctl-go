@@ -40,14 +40,6 @@ func apiUrl() string {
 	}
 }
 
-func mtlsUrl() string {
-	if os.Getenv("MYSOCKET_MTLS") != "" {
-		return os.Getenv("MYSOCKET_MTLS")
-	} else {
-		return "https://mtls.edge.mysocket.io"
-	}
-}
-
 func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) {
 	if hostname == "" {
 		err = errors.New("empty hostname not allowed")
@@ -81,7 +73,7 @@ func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) 
 		}
 
 		localPort := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mtlsUrl(), hostname, localPort)
+		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", apiUrl(), hostname, localPort)
 		token = Launch(url, listener)
 	}
 

@@ -32,7 +32,7 @@ func Login(orgID string) (token string, claims jwt.MapClaims, err error) {
 			return
 		}
 		localPort := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/client/auth/org/%s?port=%d", mtlsUrl(), orgID, localPort)
+		url := fmt.Sprintf("%s/client/auth/org/%s?port=%d", apiUrl(), orgID, localPort)
 		token = Launch(url, listener)
 	}
 

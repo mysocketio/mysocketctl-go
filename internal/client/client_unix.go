@@ -1,7 +1,7 @@
 //go:build !windows
 // +build !windows
 
-package cmd
+package client
 
 import (
 	"os"
@@ -11,9 +11,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// monWinCh watches for the system to signal a window resize and requests
+// MonWinCh watches for the system to signal a window resize and requests
 // a window-change from the server.
-func monWinCh(session *ssh.Session, fd uintptr) {
+func MonWinCh(session *ssh.Session, fd uintptr) {
 	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, syscall.SIGWINCH)
@@ -21,6 +21,6 @@ func monWinCh(session *ssh.Session, fd uintptr) {
 
 	// resize the tty if any signals received
 	for range sigs {
-		session.SendRequest("window-change", false, termSize(fd))
+		session.SendRequest("window-change", false, TermSize(fd))
 	}
 }

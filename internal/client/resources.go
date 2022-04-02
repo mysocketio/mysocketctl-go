@@ -15,6 +15,8 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/fatih/color"
+	"github.com/mysocketio/mysocketctl-go/internal/enum"
 	internalhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 )
 
@@ -145,7 +147,7 @@ func ValidateClientToken(token string) (email string, err error) {
 	return userEmail, nil
 }
 
-func FetchResources(token string) (resources internalhttp.DnsDomains, err error) {
+func FetchResources(token string, filteredTypes ...string) (resources internalhttp.ClientResources, err error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/resources", apiUrl()), nil)
 	req.Header.Add("x-access-token", token)
 	client := http.Client{
@@ -171,56 +173,27 @@ func FetchResources(token string) (resources internalhttp.DnsDomains, err error)
 		err = fmt.Errorf("couldn't parse dnsrecords response: %w", err)
 		return
 	}
+	if len(filteredTypes) > 0 {
+		allowedTypes := make(map[string]struct{})
+		for _, typ := range filteredTypes {
+			allowedTypes[strings.ToLower(typ)] = struct{}{}
+		}
+		tmp := resources.Resources[:0] // use the same block of memory to reduce allocation cost
+		for _, res := range resources.Resources {
+			if _, exists := allowedTypes[strings.ToLower(res.SocketType)]; exists {
+				tmp = append(tmp, res)
+			}
+		}
+		resources.Resources = tmp
+	}
 
 	return resources, nil
 }
 
 func PickHostAndEnterDBName(inputHost, inputDBName string) (pickedHost, enteredDBName string, err error) {
-	pickedHost = inputHost
-	if pickedHost == "" {
-		var (
-			valid bool
-			token string
-		)
-		valid, token, _, err = IsExistingClientTokenValid("")
-		if !valid {
-			fmt.Println(err)
-			fmt.Println()
-
-			var orgID string
-			if err = survey.AskOne(&survey.Input{
-				Message: "let's try to log in again, what is your organization id/email:",
-			}, &orgID, survey.WithValidator(survey.Required)); err != nil {
-				err = fmt.Errorf("couldn't collect organization id/email from input: %w", err)
-				return
-			}
-
-			token, _, err = Login(orgID)
-			if err != nil {
-				err = fmt.Errorf("failed logging into org %s: %w", orgID, err)
-				return
-			}
-		}
-
-		var resources internalhttp.DnsDomains
-		resources, err = FetchResources(token)
-		if err != nil {
-			err = fmt.Errorf("failed fetching client resources: %w", err)
-			return
-		}
-
-		var hosts []string
-		for _, res := range resources.DomainResources {
-			hosts = append(hosts, strings.Join(res.Domains, " / "))
-		}
-
-		if err = survey.AskOne(&survey.Select{
-			Message: "choose a host:",
-			Options: hosts,
-		}, &pickedHost); err != nil {
-			err = fmt.Errorf("couldn't capture host input: %w", err)
-			return
-		}
+	pickedHost, err = PickHost(inputHost, enum.DatabaseSocket)
+	if err != nil {
+		return
 	}
 
 	enteredDBName = inputDBName
@@ -234,4 +207,93 @@ func PickHostAndEnterDBName(inputHost, inputDBName string) (pickedHost, enteredD
 	}
 
 	return pickedHost, enteredDBName, nil
+}
+
+func ReadTokenOrAskToLogIn() (token string, err error) {
+	var valid bool
+	valid, token, _, err = IsExistingClientTokenValid("")
+	if !valid {
+		fmt.Println(err)
+		fmt.Println()
+
+		var orgID string
+		if err = survey.AskOne(&survey.Input{
+			Message: "let's try to log in again, what is your organization id/email:",
+		}, &orgID, survey.WithValidator(survey.Required)); err != nil {
+			err = fmt.Errorf("couldn't collect organization id/email from input: %w", err)
+			return
+		}
+
+		token, _, err = Login(orgID)
+		if err != nil {
+			err = fmt.Errorf("failed logging into org %s: %w", orgID, err)
+			return
+		}
+	}
+	return token, nil
+}
+
+func PickHost(inputHost string, socketTypes ...string) (pickedHost string, err error) {
+	pickedHost = inputHost
+	if pickedHost == "" {
+		var token string
+		token, err = ReadTokenOrAskToLogIn()
+		if err != nil {
+			return
+		}
+
+		var resources internalhttp.ClientResources
+		resources, err = FetchResources(token, socketTypes...)
+		if err != nil {
+			err = fmt.Errorf("failed fetching client resources: %w", err)
+			return
+		}
+
+		blue := color.New(color.FgBlue)
+		answers := make(map[string]string)
+
+		var hosts []string
+		for _, res := range resources.Resources {
+			hostToShow := res.DomainsToString() + " " + blue.Sprintf("[%s]", res.SocketName)
+			hostToReturn := res.FirstDomain("")
+			answers[hostToShow] = hostToReturn
+			hosts = append(hosts, hostToShow)
+		}
+
+		if err = survey.AskOne(&survey.Select{
+			Message: "choose a host:",
+			Options: hosts,
+		}, &pickedHost); err != nil {
+			err = fmt.Errorf("couldn't capture host input: %w", err)
+			return
+		}
+		pickedHost = answers[pickedHost]
+	}
+	return pickedHost, nil
+}
+
+func PickResourceTypes(inputFilter string) (pickedTypes []string, err error) {
+	if inputFilter == "prompt" {
+		allTypes := []string{enum.HTTPSocket, enum.TLSSocket, enum.SSHSocket, enum.DatabaseSocket}
+		if err = survey.AskOne(&survey.MultiSelect{
+			Message: "what types of resources would you like to see:",
+			Options: allTypes,
+			Default: allTypes,
+		}, &pickedTypes); err != nil {
+			err = fmt.Errorf("unable to capture input: %w", err)
+			return
+		}
+	} else {
+		pickedTypes = strings.Split(inputFilter, ",")
+	}
+	if len(pickedTypes) == 0 {
+		err = errors.New("no resource types selected")
+		return
+	}
+	for _, typ := range pickedTypes {
+		if typ == enum.HTTPSocket {
+			pickedTypes = append(pickedTypes, enum.HTTPSSocket)
+		}
+	}
+	return pickedTypes, nil
 }

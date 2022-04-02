@@ -3,10 +3,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -23,8 +26,10 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/moby/term"
 	"github.com/mysocketio/mysocketctl-go/internal/client/password"
 	"github.com/pavel-v-chernykh/keystore-go/v4"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -315,6 +320,78 @@ func GetCert(token string, socketDNS string, email string) *CertificateResponse 
 	return cert
 }
 
+type SSHSignRequest struct {
+	SSHPublicKey string `json:"ssh_public_key"`
+}
+
+type SSHSignResponse struct {
+	SSHCertSigned string `json:"signed_ssh_cert"`
+}
+
+func GenSSHKey(token string, socketDNS string) *SSHSignResponse {
+	// create ssh key
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		log.Fatalf("Error: failed to create ssh key: %v", err)
+	}
+
+	parsed, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		log.Fatalf("Error: failed to create ssh key: %v", err)
+	}
+
+	// write key
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("Error: failed to write ssh key: %v", err)
+	}
+
+	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
+	err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s", home, socketDNS), keyPem, 0600)
+	if err != nil {
+		log.Fatalf("Error: failed to write ssh key: %v", err)
+	}
+
+	// create public key
+	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		log.Fatalf("Error: failed to create public ssh key: %v", err)
+	}
+	data := ssh.MarshalAuthorizedKey(pub)
+
+	//post signing request
+	jv, _ := json.Marshal(SSHSignRequest{SSHPublicKey: strings.TrimRight(string(data), "\n")})
+	body := bytes.NewBuffer(jv)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/ssh", apiUrl(), socketDNS), body)
+	req.Header.Add("x-access-token", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error in request: %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		log.Fatalln("Error: No valid token, Please login")
+	}
+
+	if resp.StatusCode != 200 {
+		responseData, _ := ioutil.ReadAll(resp.Body)
+		log.Fatalf("Error: Failed to get cert: %v %v", resp.StatusCode, string(responseData))
+	}
+
+	cert := &SSHSignResponse{}
+	err = json.NewDecoder(resp.Body).Decode(cert)
+	if err != nil {
+		log.Fatalln("Error: Failed to decode certificate")
+	}
+
+	return cert
+}
+
 func ExecCommand(name string, arg ...string) error {
 	cmd := exec.Command(name, arg...)
 	cmd.Stdin = os.Stdin
@@ -380,4 +457,21 @@ func Zeroing(buf []byte) {
 	for i := range buf {
 		buf[i] = 0
 	}
+}
+
+// TermSize gets the current window size and returns it in a window-change friendly format.
+func TermSize(fd uintptr) []byte {
+	size := make([]byte, 16)
+
+	winsize, err := term.GetWinsize(fd)
+	if err != nil {
+		binary.BigEndian.PutUint32(size, uint32(80))
+		binary.BigEndian.PutUint32(size[4:], uint32(24))
+		return size
+	}
+
+	binary.BigEndian.PutUint32(size, uint32(winsize.Width))
+	binary.BigEndian.PutUint32(size[4:], uint32(winsize.Height))
+
+	return size
 }

@@ -1,5 +1,12 @@
 package http
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/mysocketio/mysocketctl-go/internal/enum"
+)
+
 type registerForm struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -28,15 +35,47 @@ type SwitchOrgResponse struct {
 	OrgID   string `json:"org_id"`
 }
 
-type DomainResource struct {
+type ClientResource struct {
 	PrivateSocket bool     `json:"private_socket,omitempty"`
 	IPAddress     string   `json:"ip_address,omitempty"`
+	SocketType    string   `json:"socket_type,omitempty"`
+	SocketName    string   `json:"socket_name,omitempty"`
 	Domains       []string `json:"domains,omitempty"`
 }
 
-type DnsDomains struct {
+func (c ClientResource) FirstDomain(defaultValue string) string {
+	domain := defaultValue
+	if len(c.Domains) > 0 {
+		domain = c.Domains[0]
+	}
+	return domain
+}
+
+func (c ClientResource) DomainsToString() string {
+	return strings.Join(c.Domains, ", ")
+}
+
+func (c ClientResource) Instruction() string {
+	firstDomain := c.FirstDomain("<host>")
+
+	var instruction string
+	switch strings.ToLower(c.SocketType) {
+	case enum.HTTPSocket, enum.HTTPSSocket:
+		instruction = fmt.Sprintf("https://%s", firstDomain)
+	case enum.SSHSocket:
+		instruction = fmt.Sprintf("mysocketctl client ssh --username <username> --host %s", firstDomain)
+	case enum.TLSSocket:
+		instruction = fmt.Sprintf("mysocketctl client tls --host %s\n", firstDomain) +
+			fmt.Sprintf("mysocketctl client tls --host %s --listener <local_port>", firstDomain)
+	case enum.DatabaseSocket:
+		instruction = fmt.Sprintf("mysocketctl client db --host %s", firstDomain)
+	}
+	return instruction
+}
+
+type ClientResources struct {
 	RefreshHint        int              `json:"refresh_hint,omitempty"`
-	DomainResources    []DomainResource `json:"resources,omitempty"`
+	Resources          []ClientResource `json:"resources,omitempty"`
 	DefaultIPAddresses []string         `json:"ip_addresses,omitempty"`
 }
 

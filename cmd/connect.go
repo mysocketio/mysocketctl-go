@@ -48,6 +48,18 @@ var connectCmd = &cobra.Command{
 			log.Fatalf("error: empty name not allowed")
 		}
 
+		if port == 0 {
+			if socketType == "ssh" {
+				if !localssh {
+					cmd.Help()
+					log.Fatalf("error: port not specified")
+				}
+			} else {
+				cmd.Help()
+				log.Fatalf("error: port not specified")
+			}
+		}
+
 		var allowedEmailAddresses []string
 		var allowedEmailDomains []string
 		var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
@@ -159,7 +171,12 @@ var connectCmd = &cobra.Command{
 		}()
 
 		SetRlimit()
-		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version)
+
+		if socketType != "ssh" && localssh {
+			localssh = false
+		}
+
+		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, c.SSHCa)
 		fmt.Println("cleaning up...")
 		client, err = http.NewClient()
 
@@ -187,7 +204,8 @@ func init() {
 	connectCmd.Flags().StringVarP(&upstream_http_hostname, "upstream_http_hostname", "", "", "Upstream http hostname")
 	connectCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: Upstream type: http, https for http sockets or mysql, postgres for database sockets")
 	connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
-	connectCmd.MarkFlagRequired("port")
+	connectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Proxy host used for connection to mysocket.io")
+	//connectCmd.MarkFlagRequired("port")
 	connectCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(connectCmd)

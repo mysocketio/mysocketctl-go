@@ -151,7 +151,7 @@ var tunnelConnectCmd = &cobra.Command{
 		}()
 
 		SetRlimit()
-		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version)
+		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, false, "")
 	},
 }
 

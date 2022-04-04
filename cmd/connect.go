@@ -204,8 +204,7 @@ func init() {
 	connectCmd.Flags().StringVarP(&upstream_http_hostname, "upstream_http_hostname", "", "", "Upstream http hostname")
 	connectCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: Upstream type: http, https for http sockets or mysql, postgres for database sockets")
 	connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
-	connectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Proxy host used for connection to mysocket.io")
-	//connectCmd.MarkFlagRequired("port")
+	connectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Start a local SSH server to accept SSH sessions on this host")
 	connectCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(connectCmd)

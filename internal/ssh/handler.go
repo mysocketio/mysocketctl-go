@@ -44,7 +44,7 @@ type httpProxy struct {
 
 func sshServer() string {
 	if os.Getenv("MYSOCKET_SSH") != "" {
-		return os.Getenv("MYSOCKET_SSH") 
+		return os.Getenv("MYSOCKET_SSH")
 	} else {
 		return "ssh.mysocket.io"
 	}
@@ -162,7 +162,7 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 	return certSigner
 }
 
-func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string) error {
+func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string) error {
 	tunnel, err := mysocketctlhttp.GetTunnel(socketID, tunnelID)
 
 	if err != nil {
@@ -304,25 +304,31 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 			continue
 		}
 
-		go func() {
-			for {
-				client, err := listener.Accept()
-				if err != nil {
-					log.Printf("Tunnel Connection accept error: %v", err)
-					return
-				}
+		if localssh {
+			sshServer := newServer(sshCa)
+			go sshServer.Serve(listener)
+		} else {
 
-				go func() {
-					local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
+			go func() {
+				for {
+					client, err := listener.Accept()
 					if err != nil {
-						log.Printf("Dial INTO local service error: %s", err)
+						log.Printf("Tunnel Connection accept error: %v", err)
 						return
 					}
 
-					go handleClient(client, local)
-				}()
-			}
-		}()
+					go func() {
+						local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
+						if err != nil {
+							log.Printf("Dial INTO local service error: %s", err)
+							return
+						}
+
+						go handleClient(client, local)
+					}()
+				}
+			}()
+		}
 
 		if err := session.Wait(); err != nil {
 			log.Printf("ssh session error: %v", err)

@@ -128,8 +128,28 @@ var tunnelConnectCmd = &cobra.Command{
 		if tunnelID == "" {
 			log.Fatalf("error: invalid tunnel_id")
 		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+
+		socket := http.Socket{}
+		err = client.Request("GET", "socket/"+socketID, &socket, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
 		if port < 1 {
-			log.Fatalf("error: invalid port")
+			if socket.SocketType == "ssh" {
+				if !localssh {
+					cmd.Help()
+					log.Fatalf("error: port not specified")
+				}
+			} else {
+				cmd.Help()
+				log.Fatalf("error: port not specified")
+			}
 		}
 
 		userID, _, err := http.GetUserID()
@@ -151,7 +171,12 @@ var tunnelConnectCmd = &cobra.Command{
 		}()
 
 		SetRlimit()
-		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, false, "")
+
+		if socket.SocketType != "ssh" && localssh {
+			localssh = false
+		}
+
+		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, socket.SSHCa)
 	},
 }
 
@@ -189,16 +214,6 @@ func init() {
 	tunnelCmd.AddCommand(tunnelDeleteCmd)
 	tunnelCmd.AddCommand(tunnelConnectCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// tunnelCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// tunnelCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	tunnelDeleteCmd.Flags().StringVarP(&tunnelID, "tunnel_id", "t", "", "Tunnel ID")
 	tunnelDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	tunnelDeleteCmd.MarkFlagRequired("tunnel_id")
@@ -228,9 +243,9 @@ func init() {
 	tunnelConnectCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	tunnelConnectCmd.Flags().StringVarP(&hostname, "host", "", "127.0.0.1", "Target host: Control where inbound traffic goes. Default localhost")
 	tunnelConnectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
+	tunnelConnectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Start a local SSH server to accept SSH sessions on this host")
 	tunnelConnectCmd.MarkFlagRequired("tunnel_id")
 	tunnelConnectCmd.MarkFlagRequired("socket_id")
-	tunnelConnectCmd.MarkFlagRequired("port")
 	tunnelConnectCmd.RegisterFlagCompletionFunc("socket_id", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})

@@ -38,6 +38,11 @@ type Account struct {
 	SshKey      string `json:"sshkey,omitempty"`
 }
 
+type Organization struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Socket struct {
 	Tunnels               []Tunnel `json:"tunnels,omitempty"`
 	Username              string   `json:"user_name,omitempty"`

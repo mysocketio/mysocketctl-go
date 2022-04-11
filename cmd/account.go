@@ -32,6 +32,36 @@ var accountCmd = &cobra.Command{
 	Short: "Create a new account or see account information.",
 }
 
+var listOrgs = &cobra.Command{
+	Use:   "list-orgs",
+	Short: "List all organizations your user belongs to",
+	Run: func(cmd *cobra.Command, args []string) {
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+
+		orgs := []http.Organization{}
+		err = client.Request("GET", "organizations/list", &orgs, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+
+		t := table.NewWriter()
+		t.AppendHeader(table.Row{"ID", "Name"})
+
+		for _, s := range orgs {
+			t.AppendRow(table.Row{s.ID, s.Name})
+		}
+		t.SetStyle(table.StyleLight)
+		fmt.Printf("%s\n", t.Render())
+	},
+}
+
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new account",
@@ -101,5 +131,6 @@ func init() {
 
 	accountCmd.AddCommand(createCmd)
 	accountCmd.AddCommand(showCmd)
+	accountCmd.AddCommand(listOrgs)
 	rootCmd.AddCommand(accountCmd)
 }

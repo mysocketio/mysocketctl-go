@@ -32,6 +32,88 @@ var accountCmd = &cobra.Command{
 	Short: "Create a new account or see account information.",
 }
 
+var listOrgs = &cobra.Command{
+	Use:   "list-orgs",
+	Short: "List all organizations your user belongs to",
+	Run: func(cmd *cobra.Command, args []string) {
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+
+		_, userID, err := http.GetUserID()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		account := http.Account{}
+		err = client.Request("GET", "user/"+*userID, &account, nil)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+
+		orgs := []http.Organization{}
+		err = client.Request("GET", "organizations/list", &orgs, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+
+		t := table.NewWriter()
+		t.AppendHeader(table.Row{"ID", "Name", "Current"})
+
+		for _, s := range orgs {
+			if s.ID == account.Organization.ID {
+				t.AppendRow(table.Row{s.ID, s.Name, "Yes"})
+			} else {
+				t.AppendRow(table.Row{s.ID, s.Name, "No"})
+			}
+
+		}
+		t.SetStyle(table.StyleLight)
+		fmt.Printf("%s\n", t.Render())
+	},
+}
+
+var switchOrg = &cobra.Command{
+	Use:   "switch-org",
+	Short: "Switch to a different organization",
+	Run: func(cmd *cobra.Command, args []string) {
+
+		form := http.SwitchOrgRequest{OrgName: orgName}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+		val := &http.SwitchOrgResponse{}
+
+		err = client.Request("POST", "users/organizations/switch", val, &form)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("Switching to organization: %s\n", val.OrgName)
+		f, err := os.Create(http.TokenFilePath())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err := os.Chmod(http.TokenFilePath(), 0600); err != nil {
+			log.Fatal(err)
+		}
+
+		defer f.Close()
+		_, err = f.WriteString(fmt.Sprintf("%s\n", val.Token))
+		if err != nil {
+			log.Fatal(err)
+		}
+	},
+}
+
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new account",
@@ -99,7 +181,12 @@ func init() {
 	createCmd.MarkFlagRequired("password")
 	createCmd.Flags().MarkHidden("sshkey")
 
+	switchOrg.Flags().StringVarP(&orgName, "org-name", "", "", "organization name")
+	switchOrg.MarkFlagRequired("org-name")
+
 	accountCmd.AddCommand(createCmd)
 	accountCmd.AddCommand(showCmd)
+	accountCmd.AddCommand(listOrgs)
+	accountCmd.AddCommand(switchOrg)
 	rootCmd.AddCommand(accountCmd)
 }

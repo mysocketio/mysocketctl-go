@@ -22,12 +22,19 @@ type Client struct {
 	token string
 }
 
+func APIURL() string {
+	return apiUrl()
+}
 func apiUrl() string {
 	if os.Getenv("MYSOCKET_API") != "" {
 		return os.Getenv("MYSOCKET_API")
 	} else {
 		return "https://api.mysocket.io"
 	}
+}
+
+func TokenFilePath() string {
+	return tokenfile()
 }
 
 func tokenfile() string {

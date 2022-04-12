@@ -18,6 +18,16 @@ type TokenForm struct {
 	Token string `json:"token"`
 }
 
+type SwitchOrgRequest struct {
+	OrgName string `json:"org_name"`
+}
+
+type SwitchOrgResponse struct {
+	Token   string `json:"token"`
+	OrgName string `json:"org_name"`
+	OrgID   string `json:"org_id"`
+}
+
 type DomainResource struct {
 	PrivateSocket bool     `json:"private_socket,omitempty"`
 	IPAddress     string   `json:"ip_address,omitempty"`
@@ -31,11 +41,12 @@ type DnsDomains struct {
 }
 
 type Account struct {
-	Name        string `json:"name,omitempty"`
-	Email       string `json:"email,omitempty"`
-	UserID      string `json:"user_id,omitempty"`
-	SshUsername string `json:"user_name,omitempty"`
-	SshKey      string `json:"sshkey,omitempty"`
+	Name         string        `json:"name,omitempty"`
+	Email        string        `json:"email,omitempty"`
+	UserID       string        `json:"user_id,omitempty"`
+	SshUsername  string        `json:"user_name,omitempty"`
+	SshKey       string        `json:"sshkey,omitempty"`
+	Organization *Organization `json:"primary_organization"`
 }
 
 type Organization struct {

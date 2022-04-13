@@ -126,10 +126,6 @@ func print_socket(s http.Socket) string {
 		tc.AppendRow(table.Row{strings.Join(s.AllowedEmailAddresses, "\n"), strings.Join(s.AllowedEmailDomains, "\n")})
 		tc.SetStyle(table.StyleLight)
 		socket_output = socket_output + fmt.Sprintf("\nCloud Authentication, login details:\n%s\n", tc.Render())
-
-		if s.SocketType == "tls" || s.SocketType == "ssh" {
-			socket_output = socket_output + fmt.Sprintf("\nSSH Public CA for this Socket:\n%s\n", s.SSHCa)
-		}
 	}
 
 	if s.SocketType == "http" || s.SocketType == "https" {

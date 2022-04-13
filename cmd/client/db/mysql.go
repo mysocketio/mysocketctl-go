@@ -19,10 +19,12 @@ var mysqlCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		crtPath, keyPath, port, err := client.FetchCertAndReturnPaths(hostname, port)
+
+		_, _, crtPath, keyPath, port, err := client.GetOrgCert(hostname)
 		if err != nil {
 			return err
 		}
+
 		return client.ExecCommand("mysql", []string{
 			"-h", hostname,
 			"-P", fmt.Sprint(port),

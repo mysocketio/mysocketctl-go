@@ -23,29 +23,27 @@ var dbeaverCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		token, claims, err := client.MTLSLogin(hostname)
+
+		_, claims, err := client.MTLSLogin(hostname)
 		if err != nil {
 			return err
 		}
 
-		socketDNS := fmt.Sprint(claims["socket_dns"])
-		userEmail := fmt.Sprint(claims["user_email"])
+		orgID := fmt.Sprint(claims["org_id"])
+		cert, key, _, _, socketPort, err := client.GetOrgCert(hostname)
+		if err != nil {
+			return err
+		}
 
-		cert := client.GetCert(token, socketDNS, userEmail)
-		keyStore, keyStorePassword, err := client.CertToKeyStore(cert)
+		keyStore, keyStorePassword, _ := client.CertToKeyStore(cert, key)
 		defer client.Zeroing(keyStorePassword)
 
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("failed to get home dir : %w", err)
 		}
-		keyStorePath := filepath.Join(home, ".mysocketio", socketDNS+".jks")
+		keyStorePath := filepath.Join(home, ".mysocketio", orgID+".jks")
 		client.WriteKeyStore(keyStore, keyStorePath, keyStorePassword)
-
-		socketPort, err := client.GetSocketPortFrom(claims, port)
-		if err != nil {
-			return err
-		}
 
 		// for more about jdbc driver properties, see:
 		// https://dev.mysql.com/doc/connector-j/5.1/en/connector-j-connp-props-security.html

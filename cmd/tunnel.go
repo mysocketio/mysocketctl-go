@@ -176,7 +176,13 @@ var tunnelConnectCmd = &cobra.Command{
 			localssh = false
 		}
 
-		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, socket.SSHCa)
+		org := http.OrganizationInfo{}
+		err = client.Request("GET", "organization", &org, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"])
 	},
 }
 

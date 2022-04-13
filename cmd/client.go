@@ -19,21 +19,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"os/user"
 	"regexp"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/txn2/txeh"
-
-	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/shirou/gopsutil/process"
 
 	"github.com/mysocketio/mysocketctl-go/cmd/client/db"
 	"github.com/mysocketio/mysocketctl-go/cmd/client/hosts"
@@ -48,8 +43,6 @@ const (
 	service_name        = "mysocket_service"
 	service_description = "MySocket.io Service"
 )
-
-var mysocket_api_url string
 
 type Service struct {
 	daemon.Daemon
@@ -75,12 +68,16 @@ var clientCertFetchCmd = &cobra.Command{
 	Use:   "fetch",
 	Short: "Fetch Client certificate",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		crtPath, keyPath, _, err := client.FetchCertAndReturnPaths(hostname, port)
-		if err != nil {
-			return err
-		}
+		if crtPath, keyPath, ok := client.IsClientCertValid(); !ok {
+			crtPath, keyPath, _, err := client.FetchCertAndReturnPaths(hostname)
+			if err != nil {
+				return err
+			}
+			fmt.Println("Client certificate file:", crtPath, "and", keyPath)
 
-		fmt.Println("Client certificate file:", crtPath, "and", keyPath)
+		} else {
+			fmt.Println("Client certificate file:", crtPath, "and", keyPath)
+		}
 		return nil
 	},
 }
@@ -104,83 +101,16 @@ var clientTlsCmd = &cobra.Command{
 			hostname = match[1]
 		}
 
-		// Check if we already have a valid token
-		token_content := ""
-
-		tokenfile := client.MTLSTokenFile(hostname)
-		if _, err := os.Stat(tokenfile); os.IsNotExist(err) {
-			// Does not exist
-		} else {
-			// read token from file
-			content, _ := ioutil.ReadFile(tokenfile)
-			if err == nil {
-				tokenString := strings.TrimRight(string(content), "\n")
-				tmp_jwt_token, _ := jwt.Parse(tokenString, nil)
-				if tmp_jwt_token != nil {
-
-					claims := tmp_jwt_token.Claims.(jwt.MapClaims)
-					exp := int64(claims["exp"].(float64))
-					//  subtract 10secs from token, for expected work time
-					//  If token time is larger then current time we're good
-					if exp-10 > time.Now().Unix() {
-						token_content = tokenString
-					}
-				}
-			}
-		}
-
-		if token_content == "" {
-			listener, err := net.Listen("tcp", "localhost:")
-			if err != nil {
-				log.Fatalln("Error: Unable to start local http listener.")
-			}
-
-			local_port := listener.Addr().(*net.TCPAddr).Port
-			url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_api_url, hostname, local_port)
-			token_content = client.Launch(url, listener)
-		}
-
-		jwt_token, err := jwt.Parse(token_content, nil)
-		if jwt_token == nil {
-			log.Fatalf("couldn't parse token: %v", err.Error())
-		}
-
-		claims := jwt_token.Claims.(jwt.MapClaims)
-		if _, ok := claims["user_email"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for user_email")
-		}
-
-		if _, ok := claims["socket_dns"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for socket_dns")
-		}
-
-		var cert *client.CertificateResponse
-		if token_content != "" {
-			cert = client.GetCert(token_content, claims["socket_dns"].(string), claims["user_email"].(string))
-		} else {
-			log.Fatalln("Error: Login failed")
-		}
-
-		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
+		cert, key, _, _, port, err := client.GetOrgCert(hostname)
 		if err != nil {
-			log.Fatalf("Error: unable to load certificate: %s", err)
+			log.Fatalf("failed to get certificate: %v", err.Error())
 		}
 
-		// If user didnt set port using --port, then get it from jwt token
-		if port == 0 {
-			if _, ok := claims["socket_port"]; ok {
-			} else {
-				log.Fatalf("Can't find claim for socket_port")
-			}
-			port = int(claims["socket_port"].(float64))
-
-			if port == 0 {
-				log.Fatalf("Error: Unable to get tls port from token")
-			}
-
+		certificate := tls.Certificate{
+			Certificate: [][]byte{cert.Raw},
+			PrivateKey:  key,
 		}
+
 		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
 		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
 		if err != nil {
@@ -221,41 +151,9 @@ var clientLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login and get API token so service can authenticate",
 	Run: func(cmd *cobra.Command, args []string) {
-		client.Login(orgID)
-
-		// check if installed
-		switch runtime.GOOS {
-		case "darwin":
-			path := "/Library/LaunchDaemons/" + service_name + ".plist"
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				fmt.Println("Note, mysocket service not installed! ")
-				fmt.Println("please run this to install the service:")
-				fmt.Println("sudo " + os.Args[0] + " client service install")
-				return
-
-			}
-		}
-		processes, err := process.Processes()
+		_, _, err := client.Login(orgID)
 		if err != nil {
-			panic(err)
-		}
-		foundProcess := false
-		for _, p := range processes {
-			cmdline, _ := p.Cmdline()
-			// See if it looks like the process we're  looking for
-			res := strings.Contains(cmdline, " client dnsupdater --homedir ") //
-			if res {
-				//fmt.Println("MATCH for ", cmdline)
-				//name, _ := p.Name()
-				//fmt.Println(p, name)
-				foundProcess = true
-				break
-			}
-		}
-		if !foundProcess {
-			fmt.Println("Service not running! Please start the service using:")
-			fmt.Println("sudo " + os.Args[0] + " client service start")
-			return
+			log.Fatal(err)
 		}
 
 		fmt.Println("Login successful")
@@ -500,12 +398,6 @@ func stream_copy(src io.Reader, dst io.Writer) <-chan int {
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
-
-	if os.Getenv("MYSOCKET_API") != "" {
-		mysocket_api_url = os.Getenv("MYSOCKET_API")
-	} else {
-		mysocket_api_url = "https://api.mysocket.io"
-	}
 
 	rootCmd.AddCommand(clientCmd)
 	clientCmd.AddCommand(clientTlsCmd)

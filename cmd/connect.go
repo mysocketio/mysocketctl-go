@@ -176,7 +176,13 @@ var connectCmd = &cobra.Command{
 			localssh = false
 		}
 
-		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, c.SSHCa)
+		org := http.OrganizationInfo{}
+		err = client.Request("GET", "organization", &org, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"])
 		fmt.Println("cleaning up...")
 		client, err = http.NewClient()
 

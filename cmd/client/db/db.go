@@ -10,7 +10,6 @@ import (
 
 var (
 	hostname string
-	port     int
 )
 
 func AddCommandsTo(client *cobra.Command) {
@@ -23,7 +22,6 @@ func AddCommandsTo(client *cobra.Command) {
 
 func addOneCommandTo(cmdToAdd, cmdAddedTo *cobra.Command) {
 	cmdToAdd.Flags().StringVarP(&hostname, "host", "", "", "Socket target host")
-	cmdToAdd.Flags().IntVarP(&port, "port", "P", 0, "Socket port number")
 	cmdAddedTo.AddCommand(cmdToAdd)
 }
 
@@ -57,7 +55,7 @@ var dbCmd = &cobra.Command{
 		}
 
 		cmdToCall := "db:" + dbClient
-		foundCmd, _, err := cmd.Parent().Find([]string{cmdToCall})
+		foundCmd, _, _ := cmd.Parent().Find([]string{cmdToCall})
 		if foundCmd.Use != cmdToCall || foundCmd.RunE == nil {
 			return fmt.Errorf("couldn't find client subcommand %s", cmdToCall)
 		}

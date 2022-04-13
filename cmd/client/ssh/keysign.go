@@ -3,8 +3,9 @@ package ssh
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/mysocketio/mysocketctl-go/internal/client"
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ import (
 var keySignCmd = &cobra.Command{
 	Use:     "ssh-keysign",
 	Aliases: []string{"ssh:keysign"},
-	Short:   "Generate a short lived ssh certificate signed by mysocket",
+	Short:   "Generate a ssh certificate signed by mysocket",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if hostname == "" {
 			return errors.New("empty hostname not allowed")
@@ -25,35 +26,69 @@ var keySignCmd = &cobra.Command{
 			return err
 		}
 
-		key := client.GenSSHKey(token, claims["socket_dns"].(string))
+		orgID := claims["org_id"].(string)
 
-		// write public key
+		_, err = client.GenSSHKey(token, orgID, hostname)
+
+		if err != nil {
+			log.Fatalln(err)
+		}
+
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("failed to write ssh key: %w", err)
+			log.Fatalf("failed to write ssh key: %v", err)
 		}
 
-		err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s-cert.pub", home, claims["socket_dns"].(string)), []byte(key.SSHCertSigned), 0600)
+		socketSshCertPath := filepath.Join(home, ".ssh", fmt.Sprintf("%s-cert.pub", hostname))
+		socketSshKeyPath := filepath.Join(home, ".ssh", hostname)
+
+		var createSshCertLink, createSshKeyLink bool
+
+		fi, err := os.Lstat(socketSshCertPath)
 		if err != nil {
-			return fmt.Errorf("failed to write ssh key: %w", err)
+			if !os.IsNotExist(err) {
+				log.Printf("failed to read link: %v", err)
+			} else {
+				createSshCertLink = true
+			}
+		} else {
+			if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+				os.Remove(socketSshCertPath)
+				createSshCertLink = true
+			}
 		}
 
-		// Also write token, for future use
-		tokenfile := client.MTLSTokenFile(hostname)
-		f, err := os.Create(tokenfile)
+		fi, err = os.Lstat(socketSshKeyPath)
 		if err != nil {
-			return fmt.Errorf("failed to create token: %w", err)
+			if !os.IsNotExist(err) {
+				log.Printf("failed to read link: %v", err)
+			} else {
+				createSshKeyLink = true
+			}
+		} else {
+			if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+				os.Remove(socketSshKeyPath)
+				createSshKeyLink = true
+			}
 		}
-		defer f.Close()
 
-		if err := os.Chmod(tokenfile, 0600); err != nil {
-			return fmt.Errorf("failed to write token: %w", err)
+		orgSshCertPath := fmt.Sprintf("%s-cert.pub", orgID)
+		orgSshKeyPath := orgID
+
+		if createSshCertLink {
+			err = os.Symlink(orgSshCertPath, socketSshCertPath)
+			if err != nil {
+				log.Printf("failed to link ssh cert: %s", err)
+			}
 		}
 
-		_, err = f.WriteString(fmt.Sprintf("%s\n", token))
-		if err != nil {
-			return fmt.Errorf("failed to write token: %w", err)
+		if createSshKeyLink {
+			err = os.Symlink(orgSshKeyPath, socketSshKeyPath)
+			if err != nil {
+				log.Printf("failed to link ssh key: %s", err)
+			}
 		}
+
 		return nil
 	},
 }

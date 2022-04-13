@@ -32,7 +32,14 @@ func newServer(ca string) *ssh.Server {
 			return
 		}
 
-		log.Printf("new ssh session for user %s\n", s.User())
+		pubKey := s.PublicKey()
+		cert, ok := pubKey.(*gossh.Certificate)
+		if !ok {
+			log.Printf("could not get user certificate")
+			return
+		}
+
+		log.Printf("new ssh session for %s (as user %s)\n", cert.KeyId, s.User())
 
 		uid, _ := strconv.ParseUint(user.Uid, 10, 32)
 		gid, _ := strconv.ParseUint(user.Gid, 10, 32)

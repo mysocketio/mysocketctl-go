@@ -25,3 +25,5 @@ require (
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
+
+replace github.com/creack/pty v1.1.11 => github.com/donorp/pty v1.1.12-0.20211004111936-294eccab62ed

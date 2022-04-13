@@ -61,45 +61,45 @@ func newServer(ca string) *ssh.Server {
 
 		cmd.Dir = user.HomeDir
 
-		ptyReq, winCh, isPty := s.Pty()
+		ptyReq, _, isPty := s.Pty()
 		if isPty {
 			cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
-			var tty *os.File
-			tty = os.NewFile(uintptr(7), "/proc/self/fd/7")
+			// var tty *os.File
+			// tty = os.NewFile(uintptr(7), "/proc/self/fd/7")
 
-			if runtime.GOOS == "windows" {
-				cmd.Stdin = tty
-				cmd.Stdout = tty
-				cmd.Stderr = tty
-				go func() {
-					io.Copy(tty, s)
-				}()
-				io.Copy(s, tty)
-			} else {
-				f, err := pty.StartWithAttrs(&cmd, &pty.Winsize{}, &syscall.SysProcAttr{
-					Credential: &syscall.Credential{
-						Uid:         uint32(uid),
-						Gid:         uint32(gid),
-						NoSetGroups: true,
-					},
-					Setsid:  true,
-					Setctty: true,
-				})
+			// if runtime.GOOS == "windows" {
+			// 	cmd.Stdin = tty
+			// 	cmd.Stdout = tty
+			// 	cmd.Stderr = tty
+			// 	go func() {
+			// 		io.Copy(tty, s)
+			// 	}()
+			// 	io.Copy(s, tty)
+			// } else {
+			f, err := pty.StartWithAttrs(&cmd, &pty.Winsize{}, &syscall.SysProcAttr{
+				Credential: &syscall.Credential{
+					Uid:         uint32(uid),
+					Gid:         uint32(gid),
+					NoSetGroups: true,
+				},
+				Setsid:  true,
+				Setctty: true,
+			})
 
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				go func() {
-					for win := range winCh {
-						setWinsize(f, win.Width, win.Height)
-					}
-				}()
-				go func() {
-					io.Copy(f, s)
-				}()
-				io.Copy(s, f)
+			if err != nil {
+				log.Println(err)
+				return
 			}
+			// go func() {
+			// 	for win := range winCh {
+			// 		setWinsize(f, win.Width, win.Height)
+			// 	}
+			// }()
+			go func() {
+				io.Copy(f, s)
+			}()
+			io.Copy(s, f)
+			// }
 			cmd.Wait()
 		} else {
 			cmd.SysProcAttr = &syscall.SysProcAttr{

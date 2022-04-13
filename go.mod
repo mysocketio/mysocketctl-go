@@ -7,11 +7,14 @@ require (
 	github.com/StackExchange/wmi v1.2.0 // indirect
 	github.com/creack/pty v1.1.11
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/fatih/color v1.7.0
 	github.com/gliderlabs/ssh v0.3.3
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-openapi/strfmt v0.20.0 // indirect
 	github.com/jbenet/go-os-rename v0.0.0-20150428075126-3ac97f61ef67
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
+	github.com/mattn/go-colorable v0.1.9 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
 	github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0

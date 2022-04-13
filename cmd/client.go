@@ -16,21 +16,12 @@ limitations under the License.
 package cmd
 
 import (
-	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/binary"
-	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"os/user"
 	"regexp"
@@ -39,17 +30,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/moby/term"
 	"github.com/txn2/txeh"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/shirou/gopsutil/process"
 
 	"github.com/mysocketio/mysocketctl-go/cmd/client/db"
+	"github.com/mysocketio/mysocketctl-go/cmd/client/hosts"
+	"github.com/mysocketio/mysocketctl-go/cmd/client/ssh"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
-	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -68,14 +59,6 @@ var stdlog, errlog *log.Logger
 
 //   dependencies that are NOT required by the service, but might be used
 var service_dependencies = []string{}
-
-type SshSignRequest struct {
-	SshPublicKey string `json:"ssh_public_key"`
-}
-
-type SshSignResponse struct {
-	SshCertSigned string `json:"signed_ssh_cert"`
-}
 
 // clientCmd represents the client command
 var clientCmd = &cobra.Command{
@@ -99,263 +82,6 @@ var clientCertFetchCmd = &cobra.Command{
 
 		fmt.Println("Client certificate file:", crtPath, "and", keyPath)
 		return nil
-	},
-}
-
-// clientSshCmd represents the client ssh keysign command
-var clientSshCmd = &cobra.Command{
-	Use:   "ssh",
-	Short: "Connect to a mysocket ssh service",
-	Run: func(cmd *cobra.Command, args []string) {
-		if hostname == "" {
-			log.Fatalf("error: empty hostname not allowed")
-		}
-
-		if username == "" {
-			log.Fatalf("error: empty username not allowed")
-		}
-
-		listener, err := net.Listen("tcp", "localhost:")
-		if err != nil {
-			log.Fatalln("Error: Unable to start local http listener.")
-		}
-
-		local_port := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_api_url, hostname, local_port)
-		token := client.Launch(url, listener)
-
-		jwt_token, err := jwt.Parse(token, nil)
-		if jwt_token == nil {
-			log.Fatalf("couldn't parse token: %v", err.Error())
-		}
-
-		claims := jwt_token.Claims.(jwt.MapClaims)
-		if _, ok := claims["user_email"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for user_email")
-		}
-
-		if _, ok := claims["socket_dns"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for socket_dns")
-		}
-
-		sshCert := genSshKey(token, claims["socket_dns"].(string))
-		cert := client.GetCert(token, claims["socket_dns"].(string), claims["user_email"].(string))
-		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
-		if err != nil {
-			log.Fatalf("Error: unable to load certificate: %s", err)
-		}
-
-		// If user didnt set port using --port, then get it from jwt token
-		if port == 0 {
-			if _, ok := claims["socket_port"]; ok {
-			} else {
-				log.Fatalf("Can't find claim for socket_port")
-			}
-			port = int(claims["socket_port"].(float64))
-
-			if port == 0 {
-				log.Fatalf("Error: Unable to get tls port from token")
-			}
-
-		}
-		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
-		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
-		if err != nil {
-			log.Fatalf("failed to connect to %s:%d: %v", hostname, port, err.Error())
-		}
-
-		home, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatalf("Error: failed to write ssh key: %v", err)
-		}
-
-		buffer, err := ioutil.ReadFile(fmt.Sprintf("%s/.ssh/%s", home, hostname))
-		if err != nil {
-			log.Fatalf("Error: %s", err)
-		}
-
-		k, err := ssh.ParsePrivateKey(buffer)
-		if err != nil {
-			log.Fatalf("Error: %s", err)
-		}
-
-		certData := []byte(sshCert.SshCertSigned)
-		pubcert, _, _, _, err := ssh.ParseAuthorizedKey(certData)
-		if err != nil {
-			log.Fatalf("Error: %v", err)
-		}
-		cert1, ok := pubcert.(*ssh.Certificate)
-
-		if !ok {
-			log.Fatalf("Error failed to cast to certificate: %v", err)
-		}
-
-		certSigner, err := ssh.NewCertSigner(cert1, k)
-		if err != nil {
-			log.Fatalf("NewCertSigner: %v", err)
-		}
-
-		sshConfig := &ssh.ClientConfig{
-			User:            username,
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         10 * time.Second,
-			Auth:            []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
-		}
-
-		fmt.Printf("\nConnecting to Server: %s:%d\n", hostname, port)
-		serverConn, chans, reqs, err := ssh.NewClientConn(conn, hostname, sshConfig)
-		if err != nil {
-			log.Fatalf("Dial INTO remote server error: %s %+v", err, conn.ConnectionState())
-		}
-		defer serverConn.Close()
-
-		client := ssh.NewClient(serverConn, chans, reqs)
-
-		session, err := client.NewSession()
-		if err != nil {
-			log.Fatalf("Failed to create session: " + err.Error())
-		}
-		defer session.Close()
-
-		fd := os.Stdin.Fd()
-
-		var (
-			termWidth, termHeight = 80, 24
-		)
-
-		if term.IsTerminal(fd) {
-			oldState, err := term.MakeRaw(fd)
-			if err != nil {
-				log.Fatalf("%s", err)
-			}
-
-			defer term.RestoreTerminal(fd, oldState)
-
-			winsize, err := term.GetWinsize(fd)
-			if err == nil {
-				termWidth = int(winsize.Width)
-				termHeight = int(winsize.Height)
-			}
-		}
-
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          1,
-			ssh.TTY_OP_ISPEED: 14400,
-			ssh.TTY_OP_OSPEED: 14400,
-		}
-
-		term := os.Getenv("TERM")
-		if term == "" {
-			term = "xterm-256color"
-		}
-
-		if err := session.RequestPty(term, termHeight, termWidth, modes); err != nil {
-			log.Fatalf("session xterm: %s", err)
-		}
-
-		/*
-			        go func() {
-						sigs := make(chan os.Signal, 1)
-						signal.Notify(sigs, syscall.SIGWINCH)
-						defer signal.Stop(sigs)
-						// resize the tty if any signals received
-						for range sigs {
-							session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
-						}
-					}()
-		*/
-		go monWinCh(session, os.Stdout.Fd())
-
-		session.Stdout = os.Stdout
-		session.Stderr = os.Stderr
-		session.Stdin = os.Stdin
-
-		if err := session.Shell(); err != nil {
-			log.Fatalf("session shell: %s", err)
-		}
-
-		/*
-			if err := session.Wait(); err != nil {
-				if e, ok := err.(*ssh.ExitError); ok {
-					switch e.ExitStatus() {
-					case 130:
-						os.Exit(0)
-					}
-				}
-				log.Fatalf("ssh: %s", err)
-			}
-		*/
-		session.Wait()
-
-	},
-}
-
-// clientSshKeySignCmd represents the client ssh keysign command
-var clientSshKeySignCmd = &cobra.Command{
-	Use:   "ssh-keysign",
-	Short: "Generate a short lived ssh certificate signed by mysocket",
-	Run: func(cmd *cobra.Command, args []string) {
-		if hostname == "" {
-			log.Fatalf("error: empty hostname not allowed")
-		}
-
-		listener, err := net.Listen("tcp", "localhost:")
-		if err != nil {
-			log.Fatalln("Error: Unable to start local http listener.")
-		}
-
-		local_port := listener.Addr().(*net.TCPAddr).Port
-		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", mysocket_api_url, hostname, local_port)
-		token := client.Launch(url, listener)
-
-		jwt_token, err := jwt.Parse(token, nil)
-		if jwt_token == nil {
-			log.Fatalf("couldn't parse token: %v", err.Error())
-		}
-
-		claims := jwt_token.Claims.(jwt.MapClaims)
-		if _, ok := claims["user_email"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for user_email")
-		}
-
-		if _, ok := claims["socket_dns"]; ok {
-		} else {
-			log.Fatalf("Can't find claim for socket_dns")
-		}
-
-		key := genSshKey(token, claims["socket_dns"].(string))
-
-		// write public key
-		home, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatalf("Error: failed to write ssh key: %v", err)
-		}
-
-		err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s-cert.pub", home, claims["socket_dns"].(string)), []byte(key.SshCertSigned), 0600)
-		if err != nil {
-			log.Fatalf("Error: failed to write ssh key: %v", err)
-		}
-
-		// Also write token, for future use
-		tokenfile := client.MTLSTokenFile(hostname)
-		f, _ := os.Create(tokenfile)
-
-		if err != nil {
-			log.Fatalf("Error: failed to create token: %v", err)
-		}
-
-		if err := os.Chmod(tokenfile, 0600); err != nil {
-			log.Fatalf("Error: failed to write token: %v", err)
-		}
-
-		defer f.Close()
-		_, err = f.WriteString(fmt.Sprintf("%s\n", token))
-		if err != nil {
-			log.Fatalf("Error: failed to write token: %v", err)
-		}
 	},
 }
 
@@ -714,7 +440,7 @@ func updateDNS(homedir string) (refreshInt int, err error) {
 		hosts.RemoveAddress(ipAddress)
 	}
 
-	for _, resource := range dnsDomains.DomainResources {
+	for _, resource := range dnsDomains.Resources {
 		if resource.PrivateSocket {
 			for _, domain := range resource.Domains {
 				stdlog.Println(domain, resource.IPAddress)
@@ -771,70 +497,6 @@ func stream_copy(src io.Reader, dst io.Writer) <-chan int {
 	return sync_channel
 }
 
-func genSshKey(token string, socketDNS string) *SshSignResponse {
-	// create ssh key
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		log.Fatalf("Error: failed to create ssh key: %v", err)
-	}
-
-	parsed, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		log.Fatalf("Error: failed to create ssh key: %v", err)
-	}
-
-	// write key
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf("Error: failed to write ssh key: %v", err)
-	}
-
-	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
-	err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s", home, socketDNS), keyPem, 0600)
-	if err != nil {
-		log.Fatalf("Error: failed to write ssh key: %v", err)
-	}
-
-	// create public key
-	pub, err := ssh.NewPublicKey(&key.PublicKey)
-	if err != nil {
-		log.Fatalf("Error: failed to create public ssh key: %v", err)
-	}
-	data := ssh.MarshalAuthorizedKey(pub)
-
-	//post signing request
-	jv, _ := json.Marshal(SshSignRequest{SshPublicKey: strings.TrimRight(string(data), "\n")})
-	body := bytes.NewBuffer(jv)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/ssh", mysocket_api_url, socketDNS), body)
-	req.Header.Add("x-access-token", token)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error in request: %v", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 {
-		log.Fatalln("Error: No valid token, Please login")
-	}
-
-	if resp.StatusCode != 200 {
-		responseData, _ := ioutil.ReadAll(resp.Body)
-		log.Fatalf("Error: Failed to get cert: %v %v", resp.StatusCode, string(responseData))
-	}
-
-	cert := &SshSignResponse{}
-	err = json.NewDecoder(resp.Body).Decode(cert)
-	if err != nil {
-		log.Fatalln("Error: Failed to decode certificate")
-	}
-
-	return cert
-}
-
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
@@ -869,33 +531,7 @@ func init() {
 
 	clientCmd.AddCommand(clientServiceCmd)
 
-	clientCmd.AddCommand(clientSshKeySignCmd)
-	clientSshKeySignCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
-	clientSshKeySignCmd.MarkFlagRequired("host")
-
-	clientCmd.AddCommand(clientSshCmd)
-	clientSshCmd.Flags().StringVarP(&hostname, "host", "", "", "The ssh mysocket target host")
-	clientSshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
-	clientSshCmd.MarkFlagRequired("host")
-	clientSshCmd.MarkFlagRequired("username")
-
 	db.AddCommandsTo(clientCmd)
-}
-
-// termSize gets the current window size and returns it in a window-change friendly
-// format.
-func termSize(fd uintptr) []byte {
-	size := make([]byte, 16)
-
-	winsize, err := term.GetWinsize(fd)
-	if err != nil {
-		binary.BigEndian.PutUint32(size, uint32(80))
-		binary.BigEndian.PutUint32(size[4:], uint32(24))
-		return size
-	}
-
-	binary.BigEndian.PutUint32(size, uint32(winsize.Width))
-	binary.BigEndian.PutUint32(size[4:], uint32(winsize.Height))
-
-	return size
+	hosts.AddCommandsTo(clientCmd)
+	ssh.AddCommandsTo(clientCmd)
 }

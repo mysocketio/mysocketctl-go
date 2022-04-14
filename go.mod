@@ -3,6 +3,7 @@ module github.com/mysocketio/mysocketctl-go
 go 1.15
 
 require (
+	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/StackExchange/wmi v1.2.0 // indirect
 	github.com/creack/pty v1.1.11
@@ -26,5 +27,6 @@ require (
 	github.com/txn2/txeh v1.3.0
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )

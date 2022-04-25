@@ -34,6 +34,8 @@ var versionCmd = &cobra.Command{
 	Short: "check version",
 }
 
+var ForceUpgrade bool
+
 var checkLatestVersionCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Check to see if you're running the latest version",
@@ -66,10 +68,15 @@ var upgradeVersionCmd = &cobra.Command{
 			log.Fatalf("error while checking for latest version: %v", err)
 		}
 		if latest_version != version {
-			fmt.Printf("Upgrading %s to version %s\n", binary_path, latest_version)
+			fmt.Printf("Upgrading %s(%s) to version %s\n", binary_path, version, latest_version)
 		} else {
 			fmt.Printf("You are up to date already :)\n")
-			return
+			if ForceUpgrade {
+				fmt.Printf("The force upgrade flag is set, we age going forward with the upgrade.\n")
+			} else {
+				fmt.Printf("If you want to force the upgrade add --force flag.\n")
+				return
+			}
 		}
 
 		checksum, latest, err := http.GetLatestBinary(runtime.GOOS, runtime.GOARCH)
@@ -121,7 +128,28 @@ var upgradeVersionCmd = &cobra.Command{
 		} else {
 			e := os.Rename(tmpfile.Name(), binary_path)
 			if e != nil {
-				log.Fatal(e)
+				fmt.Printf("%v", e)
+				fmt.Printf("Looks like this is a multi partition system.\n")
+				samePathTempfile := binary_path + ".tmp"
+				defer os.Remove(samePathTempfile)
+
+				fmt.Printf("Writing out %v\n", samePathTempfile)
+				e = ioutil.WriteFile(samePathTempfile, latest, 0644)
+				if e != nil {
+					log.Fatal(e)
+				}
+
+				err := os.Chmod(samePathTempfile, 0755)
+				if err != nil {
+					log.Fatal(err)
+				}
+				// return
+				fmt.Printf("Renaming %v to %v\n", samePathTempfile, binary_path)
+				e = os.Rename(samePathTempfile, binary_path)
+				if e != nil {
+					log.Fatal(e)
+				}
+
 			}
 		}
 		fmt.Printf("Upgrade completed\n")
@@ -131,5 +159,6 @@ var upgradeVersionCmd = &cobra.Command{
 func init() {
 	versionCmd.AddCommand(checkLatestVersionCmd)
 	versionCmd.AddCommand(upgradeVersionCmd)
+	upgradeVersionCmd.Flags().BoolVarP(&ForceUpgrade, "force", "f", false, "force the upgrade")
 	rootCmd.AddCommand(versionCmd)
 }

@@ -62,6 +62,14 @@ build:
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) $(FLAGS) -o $(BINARY_NAME) -v
 
+build-all:
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(FLAGS) -o $(BINARY_NAME)_windows_amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $(BINARY_NAME)_linux_amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(FLAGS) -o $(BINARY_NAME)_linux_arm64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm go build $(FLAGS) -o $(BINARY_NAME)_linux_arm
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(FLAGS)  -o $(BINARY_NAME)_darwin_amd64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(FLAGS)  -o $(BINARY_NAME)_darwin_arm64
+
 lint:
 	@echo "running go fmt"
 	$(GOFMT) -w .

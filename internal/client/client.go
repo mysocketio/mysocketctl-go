@@ -45,84 +45,146 @@ func apiUrl() string {
 	}
 }
 
-func MTLSLogin(hostname string) (token string, claims jwt.MapClaims, err error) {
+func MTLSLogin(hostname string) (string, jwt.MapClaims, error) {
 	if hostname == "" {
-		err = errors.New("empty hostname not allowed")
-		return
+		return "", nil, errors.New("empty hostname not allowed")
 	}
 
-	tokenFile := MTLSTokenFile(hostname)
-	// Check if we already have a valid token
+	tokenFile := MTLSTokenFile()
+	var token string
+
 	if _, err := os.Stat(tokenFile); err == nil {
-		// token file exists, read from file
 		content, _ := ioutil.ReadFile(tokenFile)
 		tokenString := strings.TrimRight(string(content), "\n")
 		tmpJWT, _ := jwt.Parse(tokenString, nil)
+
 		if tmpJWT != nil {
 			claims := tmpJWT.Claims.(jwt.MapClaims)
 			exp := int64(claims["exp"].(float64))
-			//  subtract 10secs from token, for expected work time
-			//  If token time is larger then current time we're good
+
 			if exp-10 > time.Now().Unix() {
 				token = tokenString
 			}
 		}
 	}
 
+	_, err := FetchResource(token, hostname)
+	if err != nil {
+		token = ""
+	}
+
 	if token == "" {
-		var listener net.Listener
-		listener, err = net.Listen("tcp", "localhost:")
+		listener, err := net.Listen("tcp", "localhost:")
 		if err != nil {
-			err = fmt.Errorf("unable to start local http listener: %w", err)
-			return
+			return "", nil, fmt.Errorf("unable to start local http listener: %w", err)
 		}
 
 		localPort := listener.Addr().(*net.TCPAddr).Port
 		url := fmt.Sprintf("%s/mtls-ca/socket/%s/auth?port=%d", apiUrl(), hostname, localPort)
 		token = Launch(url, listener)
-	}
 
-	// Also write token, for future use
-	f, err := os.Create(tokenFile)
-	if err != nil {
-		err = fmt.Errorf("failed to create token: %w", err)
-		return
-	}
-	if err = os.Chmod(tokenFile, 0600); err != nil {
-		err = fmt.Errorf("failed to write token: %w", err)
-		return
-	}
-	defer f.Close()
-	if _, err = f.WriteString(fmt.Sprintf("%s\n", token)); err != nil {
-		err = fmt.Errorf("failed to write token: %w", err)
-		return
+		f, err := os.Create(tokenFile)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to create token: %w", err)
+		}
+		if err = os.Chmod(tokenFile, 0600); err != nil {
+			return "", nil, fmt.Errorf("failed to write token: %w", err)
+		}
+		defer f.Close()
+		if _, err = f.WriteString(fmt.Sprintf("%s\n", token)); err != nil {
+			return "", nil, fmt.Errorf("failed to write token: %w", err)
+		}
 	}
 
 	parsedJWT, err := jwt.Parse(token, nil)
 	if parsedJWT == nil {
-		err = fmt.Errorf("couldn't parse token: %w", err)
-		return
+		return "", nil, fmt.Errorf("couldn't parse token: %w", err)
 	}
-	claims = parsedJWT.Claims.(jwt.MapClaims)
+
+	claims := parsedJWT.Claims.(jwt.MapClaims)
 	if _, ok := claims["user_email"]; !ok {
-		err = errors.New("can't find claim for user_email")
-		return
+		return "", nil, errors.New("can't find claim for user_email")
 	}
-	if _, ok := claims["socket_dns"]; !ok {
-		err = errors.New("can't find claim for socket_dns")
-		return
+
+	if _, ok := claims["org_id"]; !ok {
+		return "", nil, errors.New("can't find claim for org_id")
 	}
+
 	if token == "" {
-		err = errors.New("login failed")
+		return "", nil, errors.New("login failed")
+	}
+
+	return token, claims, nil
+}
+
+func ReadOrgCert(orgID string) (cert *x509.Certificate, key *rsa.PrivateKey, crtPath string, keyPath string, err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		err = fmt.Errorf("error: failed to get homedir : %w", err)
 		return
 	}
-	return token, claims, nil
+
+	crtPath = filepath.Join(home, ".mysocketio", orgID+".crt")
+	if _, err = os.Stat(crtPath); os.IsNotExist(err) {
+		err = fmt.Errorf("error: certificate file %s not found", crtPath)
+		return
+	}
+
+	keyPath = filepath.Join(home, ".mysocketio", orgID+".key")
+	if _, err = os.Stat(crtPath); os.IsNotExist(err) {
+		err = fmt.Errorf("error: key file %s not found", keyPath)
+		return
+	}
+
+	keyPEM, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		err = fmt.Errorf("error: failed to read key file : %w", err)
+		return
+	}
+
+	keyBlock, _ := pem.Decode(keyPEM)
+	if keyBlock == nil {
+		err = fmt.Errorf("error: failed to decode certificate file : %w", err)
+		return
+	}
+
+	parsedKey, err := x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+	if err != nil {
+		err = fmt.Errorf("error: failed to parse key file : %w", err)
+		return
+	}
+
+	key, ok := parsedKey.(*rsa.PrivateKey)
+	if !ok {
+		err = fmt.Errorf("error: failed to parse key file")
+		return
+	}
+
+	certPEM, err := ioutil.ReadFile(crtPath)
+	if err != nil {
+		err = fmt.Errorf("error: failed to read certificate file : %w", err)
+		return
+	}
+
+	certBlock, _ := pem.Decode(certPEM)
+	if certBlock == nil {
+		err = fmt.Errorf("error: failed to decode certificate file : %w", err)
+		return
+	}
+
+	cert, err = x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		err = fmt.Errorf("error: failed to parse certificate file : %w", err)
+		return
+	}
+
+	return
 }
 
 func WriteCertToFile(cert *CertificateResponse, socketDNS string) (crtPath, keyPath string, err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		err = fmt.Errorf("Error: failed to get homedir : %w", err)
+		err = fmt.Errorf("error: failed to get homedir : %w", err)
 		return
 	}
 
@@ -130,7 +192,7 @@ func WriteCertToFile(cert *CertificateResponse, socketDNS string) (crtPath, keyP
 	dotDir := filepath.Join(home, ".mysocketio")
 	if _, err = os.Stat(dotDir); os.IsNotExist(err) {
 		if err = os.Mkdir(dotDir, 0700); err != nil {
-			err = fmt.Errorf("Error: failed to create directory %s : %w", dotDir, err)
+			err = fmt.Errorf("error: failed to create directory %s : %w", dotDir, err)
 			return
 		}
 	}
@@ -139,47 +201,86 @@ func WriteCertToFile(cert *CertificateResponse, socketDNS string) (crtPath, keyP
 	keyPath = filepath.Join(dotDir, socketDNS+".key")
 
 	if err = ioutil.WriteFile(keyPath, []byte(cert.PrivateKey), 0600); err != nil {
-		err = fmt.Errorf("Error: failed to write key file : %w", err)
+		err = fmt.Errorf("error: failed to write key file : %w", err)
 		return
 	}
 
 	if err = ioutil.WriteFile(crtPath, []byte(cert.Certificate), 0600); err != nil {
-		err = fmt.Errorf("Error: failed to write certificate file : %w", err)
+		err = fmt.Errorf("error: failed to write certificate file : %w", err)
 		return
 	}
 
 	return crtPath, keyPath, nil
 }
 
-func GetSocketPortFrom(claims jwt.MapClaims, port int) (socketPort int, err error) {
-	// If user didnt set port using --port, then get it from jwt claims
-	if port == 0 {
-		if _, ok := claims["socket_port"]; !ok {
-			return 0, errors.New("Can't find claim for socket_port")
-		}
-		if socketPort = int(claims["socket_port"].(float64)); socketPort == 0 {
-			return 0, errors.New("Error: Unable to get tls port from token")
-		}
+func GetSocketPort(name string, token string) (socketPort int, err error) {
+
+	resource, err := FetchResource(token, name)
+
+	if err != nil {
+		return socketPort, err
 	}
-	return socketPort, nil
+
+	return resource.SocketPorts[0], nil
 }
 
-func FetchCertAndReturnPaths(hostname string, port int) (crtPath, keyPath string, socketPort int, err error) {
+func OrgIDFromToken() (orgID string) {
+	tokenfile := MTLSTokenFile()
+	if _, err := os.Stat(tokenfile); os.IsNotExist(err) {
+		return
+	} else {
+		content, _ := ioutil.ReadFile(tokenfile)
+		if err == nil {
+			tokenString := strings.TrimRight(string(content), "\n")
+			jwtToken, _ := jwt.Parse(tokenString, nil)
+			if jwtToken != nil {
+				claims := jwtToken.Claims.(jwt.MapClaims)
+
+				if _, ok := claims["org_id"]; ok {
+					orgID = claims["org_id"].(string)
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func IsClientCertValid() (crtPath, keyPath string, valid bool) {
+	orgID := OrgIDFromToken()
+
+	if orgID == "" {
+		return
+	}
+
+	cert, _, crtPath, keyPath, err := ReadOrgCert(orgID)
+	if err != nil {
+		return
+	}
+
+	if time.Now().Before(cert.NotAfter) && time.Now().After(cert.NotBefore) {
+		valid = true
+	}
+
+	return
+}
+
+func FetchCertAndReturnPaths(hostname string) (crtPath, keyPath string, socketPort int, err error) {
 	token, claims, err := MTLSLogin(hostname)
 	if err != nil {
 		return
 	}
 
-	socketDNS := fmt.Sprint(claims["socket_dns"])
 	userEmail := fmt.Sprint(claims["user_email"])
+	orgID := fmt.Sprint(claims["org_id"])
 
-	cert := GetCert(token, socketDNS, userEmail)
-	crtPath, keyPath, err = WriteCertToFile(cert, socketDNS)
+	cert := GetCert(token, userEmail)
+	crtPath, keyPath, err = WriteCertToFile(cert, orgID)
 	if err != nil {
 		return
 	}
 
-	socketPort, err = GetSocketPortFrom(claims, port)
+	socketPort, err = GetSocketPort(hostname, token)
 	if err != nil {
 		return
 	}
@@ -187,17 +288,55 @@ func FetchCertAndReturnPaths(hostname string, port int) (crtPath, keyPath string
 	return
 }
 
-func MTLSTokenFile(dnsname string) string {
+func GetOrgCert(hostname string) (*x509.Certificate, *rsa.PrivateKey, string, string, int, error) {
+	var ok bool
+	var err error
+	var port int
+	var claims jwt.MapClaims
+	var token, certPath, keyPath string
+
+	if certPath, keyPath, ok = IsClientCertValid(); ok {
+		token, claims, err = MTLSLogin(hostname)
+		if err != nil {
+			return nil, nil, "", "", 0, err
+		}
+
+		port, err = GetSocketPort(hostname, token)
+		if err != nil {
+			return nil, nil, "", "", 0, err
+		}
+	} else {
+		certPath, keyPath, port, err = FetchCertAndReturnPaths(hostname)
+		if err != nil {
+			return nil, nil, "", "", 0, err
+		}
+		_, claims, err = MTLSLogin(hostname)
+		if err != nil {
+			return nil, nil, "", "", 0, err
+		}
+
+	}
+
+	cert, key, _, _, err := ReadOrgCert(claims["org_id"].(string))
+	if err != nil {
+		return nil, nil, "", "", 0, err
+	}
+
+	return cert, key, certPath, keyPath, port, nil
+
+}
+
+func MTLSTokenFile() string {
 	home := os.Getenv("HOME")
 	if runtime.GOOS == "windows" {
 		home = os.Getenv("APPDATA")
 	}
-	return filepath.Join(home, ".mysocketio_token_"+dnsname)
+	// return filepath.Join(home, ".mysocketio_token_"+dnsname)
+	return filepath.Join(home, ".mysocketio_client_token")
 }
 
 func Launch(url string, listener net.Listener) string {
 	c := make(chan string)
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL
@@ -268,19 +407,18 @@ type CertificateResponse struct {
 	Certificate string `json:"client_certificate,omitempty"`
 }
 
-func GetCert(token string, socketDNS string, email string) *CertificateResponse {
+func GetCert(token string, email string) *CertificateResponse {
 	// generate key
 	keyBytes, _ := rsa.GenerateKey(rand.Reader, 2048)
 
 	// generate csr
 	template := x509.CertificateRequest{
 		Subject: pkix.Name{
-			CommonName:   email,
-			Organization: []string{socketDNS},
+			CommonName: email,
 		},
 		EmailAddresses: []string{email},
-		DNSNames:       []string{socketDNS},
 	}
+
 	csrBytes, _ := x509.CreateCertificateRequest(rand.Reader, &template, keyBytes)
 	csrPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
 	privateKeyBytes, _ := x509.MarshalPKCS8PrivateKey(keyBytes)
@@ -289,7 +427,7 @@ func GetCert(token string, socketDNS string, email string) *CertificateResponse 
 	// sign cert request
 	jv, _ := json.Marshal(CertificateSigningRequest{Csr: string(csrPem)})
 	body := bytes.NewBuffer(jv)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/csr", apiUrl(), socketDNS), body)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/organizations/csr", apiUrl()), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -302,6 +440,7 @@ func GetCert(token string, socketDNS string, email string) *CertificateResponse 
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 {
+		fmt.Printf("req: %+v\n", req)
 		log.Fatalln("Error: No valid token, Please login")
 	}
 
@@ -328,68 +467,139 @@ type SSHSignResponse struct {
 	SSHCertSigned string `json:"signed_ssh_cert"`
 }
 
-func GenSSHKey(token string, socketDNS string) *SSHSignResponse {
+func validSshCert(certFile string, keyFile string) *SSHSignResponse {
+	if _, err := os.Stat(certFile); os.IsNotExist(err) {
+		return nil
+	}
+
+	sshCert, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return nil
+	}
+
+	if _, err = os.Stat(keyFile); os.IsNotExist(err) {
+		return nil
+	}
+
+	sshKeyData, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		return nil
+	}
+
+	sshKey, err := ssh.ParsePrivateKey(sshKeyData)
+	if err != nil {
+		return nil
+	}
+
+	pubcert, _, _, _, err := ssh.ParseAuthorizedKey(sshCert)
+	if err != nil {
+		return nil
+	}
+
+	cert, ok := pubcert.(*ssh.Certificate)
+	if !ok {
+		return nil
+	}
+
+	_, err = ssh.NewCertSigner(cert, sshKey)
+	if err != nil {
+		return nil
+	}
+
+	if time.Now().Unix() > int64(cert.ValidAfter) && time.Now().Unix() < int64(cert.ValidBefore) {
+		return &SSHSignResponse{SSHCertSigned: string(sshCert)}
+	}
+
+	return nil
+}
+
+func GenSSHKey(token, orgID, hostname string) (*SSHSignResponse, error) {
+	_, err := FetchResource(token, hostname)
+	if err != nil {
+		return nil, fmt.Errorf("invalid resource: %s", err)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to write ssh key: %v", err)
+	}
+
+	// check existing key is still valid
+	sshCertPath := filepath.Join(home, ".ssh", fmt.Sprintf("%s-cert.pub", orgID))
+	sshKeyPath := filepath.Join(home, ".ssh", orgID)
+	sshCert := validSshCert(sshCertPath, sshKeyPath)
+
+	if sshCert != nil {
+		return sshCert, nil
+	}
+
+	if _, err := os.Stat(filepath.Join(home, ".ssh")); os.IsNotExist(err) {
+		err := os.Mkdir(filepath.Join(home, ".ssh"), 0700)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ssh directory: %s", err)
+		}
+	}
+
 	// create ssh key
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		log.Fatalf("Error: failed to create ssh key: %v", err)
+		return nil, fmt.Errorf("failed to create ssh key: %v", err)
 	}
 
 	parsed, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
-		log.Fatalf("Error: failed to create ssh key: %v", err)
+		return nil, fmt.Errorf("failed to create ssh key: %v", err)
 	}
 
 	// write key
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf("Error: failed to write ssh key: %v", err)
-	}
-
 	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
-	err = ioutil.WriteFile(fmt.Sprintf("%s/.ssh/%s", home, socketDNS), keyPem, 0600)
+	err = ioutil.WriteFile(sshKeyPath, keyPem, 0600)
 	if err != nil {
-		log.Fatalf("Error: failed to write ssh key: %v", err)
+		return nil, fmt.Errorf("failed to write ssh key: %v", err)
 	}
 
 	// create public key
 	pub, err := ssh.NewPublicKey(&key.PublicKey)
 	if err != nil {
-		log.Fatalf("Error: failed to create public ssh key: %v", err)
+		return nil, fmt.Errorf("failed to create public ssh key: %v", err)
 	}
 	data := ssh.MarshalAuthorizedKey(pub)
 
 	//post signing request
 	jv, _ := json.Marshal(SSHSignRequest{SSHPublicKey: strings.TrimRight(string(data), "\n")})
 	body := bytes.NewBuffer(jv)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/mtls-ca/socket/%s/ssh", apiUrl(), socketDNS), body)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/organizations/sign_ssh_key", apiUrl()), body)
 	req.Header.Add("x-access-token", token)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Error in request: %v", err)
+		return nil, fmt.Errorf("failed to sign key: %v", err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 {
-		log.Fatalln("Error: No valid token, Please login")
+		log.Fatalln("error: no valid token, Please login")
 	}
 
 	if resp.StatusCode != 200 {
-		responseData, _ := ioutil.ReadAll(resp.Body)
-		log.Fatalf("Error: Failed to get cert: %v %v", resp.StatusCode, string(responseData))
+		log.Fatalln("error: failed to get cert")
 	}
 
 	cert := &SSHSignResponse{}
 	err = json.NewDecoder(resp.Body).Decode(cert)
 	if err != nil {
-		log.Fatalln("Error: Failed to decode certificate")
+		log.Fatalln("error: failed to decode certificate")
 	}
 
-	return cert
+	err = ioutil.WriteFile(sshCertPath, []byte(cert.SSHCertSigned), 0600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write ssh key: %w", err)
+	}
+
+	return cert, nil
 }
 
 func ExecCommand(name string, arg ...string) error {
@@ -400,28 +610,35 @@ func ExecCommand(name string, arg ...string) error {
 	return cmd.Run()
 }
 
-func CertToKeyStore(cert *CertificateResponse) (ks keystore.KeyStore, pass []byte, err error) {
+func CertToKeyStore(cert *x509.Certificate, key *rsa.PrivateKey) (ks keystore.KeyStore, pass []byte, err error) {
 	// for more about keystore and jdbc to mysql connection with ssl, see:
 	// https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-using-ssl.html
 	ks = keystore.New()
 
-	privateKeyBlock, _ := pem.Decode([]byte(cert.PrivateKey))
-	if privateKeyBlock == nil {
-		err = errors.New("private key should have at least one pem block")
+	// privateKeyBlock, _ := pem.Decode([]byte(cert.PrivateKey))
+	// if privateKeyBlock == nil {
+	// 	err = errors.New("private key should have at least one pem block")
+	// 	return
+	// }
+	// certificateBlock, _ := pem.Decode([]byte(cert.Certificate))
+	// if certificateBlock == nil {
+	// 	err = errors.New("certificate should have at least one pem block")
+	// 	return
+	// }
+
+	keyData, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		fmt.Println("hier dus fout")
 		return
 	}
-	certificateBlock, _ := pem.Decode([]byte(cert.Certificate))
-	if certificateBlock == nil {
-		err = errors.New("certificate should have at least one pem block")
-		return
-	}
+
 	entry := keystore.PrivateKeyEntry{
 		CreationTime: time.Now(),
-		PrivateKey:   privateKeyBlock.Bytes,
+		PrivateKey:   keyData,
 		CertificateChain: []keystore.Certificate{
 			{
 				Type:    "X509",
-				Content: certificateBlock.Bytes,
+				Content: cert.Raw,
 			},
 		},
 	}

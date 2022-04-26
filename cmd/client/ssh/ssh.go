@@ -51,24 +51,23 @@ var sshCmd = &cobra.Command{
 			return err
 		}
 
-		socketDNS := fmt.Sprint(claims["socket_dns"])
-		userEmail := fmt.Sprint(claims["user_email"])
+		orgID := fmt.Sprint(claims["org_id"])
 
-		cert := client.GetCert(token, socketDNS, userEmail)
-		if _, _, err := client.WriteCertToFile(cert, socketDNS); err != nil {
-			return err
-		}
-
-		port, err := client.GetSocketPortFrom(claims, 0)
+		sshCert, err := client.GenSSHKey(token, orgID, hostname)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to create ssh key: %w", err)
 		}
 
-		sshCert := client.GenSSHKey(token, claims["socket_dns"].(string))
-		certificate, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.PrivateKey))
+		cert, key, _, _, port, err := client.GetOrgCert(hostname)
 		if err != nil {
-			return fmt.Errorf("unable to load certificate: %w", err)
+			log.Fatalf("failed to get certificate: %v", err.Error())
 		}
+
+		certificate := tls.Certificate{
+			Certificate: [][]byte{cert.Raw},
+			PrivateKey:  key,
+		}
+
 		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
 		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
 		if err != nil {
@@ -80,7 +79,7 @@ var sshCmd = &cobra.Command{
 			return fmt.Errorf("failed to write ssh key: %w", err)
 		}
 
-		buffer, err := ioutil.ReadFile(fmt.Sprintf("%s/.ssh/%s", home, hostname))
+		buffer, err := ioutil.ReadFile(fmt.Sprintf("%s/.ssh/%s", home, claims["org_id"]))
 		if err != nil {
 			return err
 		}
@@ -115,7 +114,7 @@ var sshCmd = &cobra.Command{
 		fmt.Printf("\nConnecting to Server: %s:%d\n", hostname, port)
 		serverConn, chans, reqs, err := ssh.NewClientConn(conn, hostname, sshConfig)
 		if err != nil {
-			return fmt.Errorf("Dial INTO remote server error: %s %+v", err, conn.ConnectionState())
+			return fmt.Errorf("dial into remote server error: %s %+v", err, conn.ConnectionState())
 		}
 		defer serverConn.Close()
 
@@ -161,17 +160,6 @@ var sshCmd = &cobra.Command{
 			return fmt.Errorf("session xterm: %w", err)
 		}
 
-		/*
-			        go func() {
-						sigs := make(chan os.Signal, 1)
-						signal.Notify(sigs, syscall.SIGWINCH)
-						defer signal.Stop(sigs)
-						// resize the tty if any signals received
-						for range sigs {
-							session.SendRequest("window-change", false, termSize(os.Stdout.Fd()))
-						}
-					}()
-		*/
 		go client.MonWinCh(session, os.Stdout.Fd())
 
 		session.Stdout = os.Stdout
@@ -182,17 +170,6 @@ var sshCmd = &cobra.Command{
 			return fmt.Errorf("session shell: %w", err)
 		}
 
-		/*
-			if err := session.Wait(); err != nil {
-				if e, ok := err.(*ssh.ExitError); ok {
-					switch e.ExitStatus() {
-					case 130:
-						os.Exit(0)
-					}
-				}
-				log.Fatalf("ssh: %s", err)
-			}
-		*/
 		return session.Wait()
 	},
 }

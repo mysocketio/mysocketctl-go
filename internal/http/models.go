@@ -40,6 +40,7 @@ type ClientResource struct {
 	IPAddress     string   `json:"ip_address,omitempty"`
 	SocketType    string   `json:"socket_type,omitempty"`
 	SocketName    string   `json:"socket_name,omitempty"`
+	SocketPorts   []int    `json:"socket_ports,omitempty"`
 	Domains       []string `json:"domains,omitempty"`
 }
 
@@ -123,4 +124,10 @@ type Tunnel struct {
 type SshCsr struct {
 	SSHPublicKey  string `json:"ssh_public_key"`
 	SSHSignedCert string `json:"signed_ssh_cert,omitempty"`
+}
+
+type OrganizationInfo struct {
+	ID           string            `json:"id,omitempty"`
+	Name         string            `json:"name,omitempty"`
+	Certificates map[string]string `json:"certificate"`
 }

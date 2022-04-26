@@ -30,7 +30,7 @@ func Login(orgID string) (token string, claims jwt.MapClaims, err error) {
 		var listener net.Listener
 		listener, err = net.Listen("tcp", "localhost:")
 		if err != nil {
-			err = errors.New("unable to start local http listener.")
+			err = errors.New("unable to start local http listener")
 			return
 		}
 		localPort := listener.Addr().(*net.TCPAddr).Port
@@ -188,6 +188,36 @@ func FetchResources(token string, filteredTypes ...string) (resources internalht
 	}
 
 	return resources, nil
+}
+
+func FetchResource(token string, name string) (resource internalhttp.ClientResource, err error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/resource/%s", apiUrl(), name), nil)
+	req.Header.Add("x-access-token", token)
+	client := http.Client{
+		Timeout: 15 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		err = fmt.Errorf("couldn't request resource: %w", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		err = errors.New("no valid token, please login")
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("failed to get resource HTTP code not 200 but %d", resp.StatusCode)
+		return
+	}
+
+	if err = json.NewDecoder(resp.Body).Decode(&resource); err != nil {
+		err = fmt.Errorf("couldn't parse resource response: %w", err)
+		return
+	}
+
+	return resource, nil
 }
 
 func PickHostAndEnterDBName(inputHost, inputDBName string) (pickedHost, enteredDBName string, err error) {

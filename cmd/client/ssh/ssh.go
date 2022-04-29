@@ -170,6 +170,13 @@ var sshCmd = &cobra.Command{
 			return fmt.Errorf("session shell: %w", err)
 		}
 
-		return session.Wait()
+		if err := session.Wait(); err != nil {
+			// gracefully handle ssh.ExitMissingError. It's returned if a session is torn down cleanly,
+			// but the server sends no confirmation of the exit status
+			if !errors.Is(err, new(ssh.ExitMissingError)) {
+				return err
+			}
+		}
+		return nil
 	},
 }

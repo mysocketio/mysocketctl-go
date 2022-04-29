@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	h "net/http"
 	"os"
 	"runtime"
@@ -124,33 +125,18 @@ func RefreshLogin() (string, error) {
 	return res.Token, nil
 }
 
-func Login(email, password string) error {
-	c := &Client{}
-	form := loginForm{Email: email, Password: password}
-	buf, err := json.Marshal(form)
+func MFAChallenge(code string) error {
+	c, err := NewClient()
 	if err != nil {
-		return err
+		log.Fatalf("error: %v", err)
 	}
-
-	requestReader := bytes.NewReader(buf)
-
-	resp, err := h.Post(apiUrl()+"/login", "application/json", requestReader)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 {
-		return errors.New("Login failed")
-	}
-
-	if resp.StatusCode != 200 {
-		return errors.New("failed to login")
-	}
-
+	form := mfaForm{Code: code}
 	res := TokenForm{}
-	json.NewDecoder(resp.Body).Decode(&res)
+
+	err = c.Request("POST", "users/mfa_challenge", &res, &form)
+	if err != nil {
+		return err
+	}
 
 	c.token = res.Token
 
@@ -170,6 +156,54 @@ func Login(email, password string) error {
 	}
 
 	return nil
+}
+
+func Login(email, password string) (bool, error) {
+	c := &Client{}
+	form := loginForm{Email: email, Password: password}
+	buf, err := json.Marshal(form)
+	if err != nil {
+		return false, err
+	}
+
+	requestReader := bytes.NewReader(buf)
+
+	resp, err := h.Post(apiUrl()+"/login", "application/json", requestReader)
+	if err != nil {
+		return false, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return false, errors.New("Login failed")
+	}
+
+	if resp.StatusCode != 200 {
+		return false, errors.New("failed to login")
+	}
+
+	res := TokenForm{}
+	json.NewDecoder(resp.Body).Decode(&res)
+
+	c.token = res.Token
+
+	f, err := os.Create(tokenfile())
+	if err != nil {
+		return false, err
+	}
+
+	if err := os.Chmod(tokenfile(), 0600); err != nil {
+		return false, err
+	}
+
+	defer f.Close()
+	_, err2 := f.WriteString(fmt.Sprintf("%s\n", c.token))
+	if err2 != nil {
+		return false, err2
+	}
+
+	return res.MFA, nil
 }
 
 func Register(name, email, password, sshkey string) error {

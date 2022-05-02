@@ -18,11 +18,16 @@ type loginForm struct {
 	Password string `json:"password"`
 }
 
+type mfaForm struct {
+	Code string `json:"code"`
+}
+
 type LoginRefresh struct {
 }
 
 type TokenForm struct {
 	Token string `json:"token"`
+	MFA   bool   `json:"require_mfa"`
 }
 
 type SwitchOrgRequest struct {

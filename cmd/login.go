@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"os"
 
@@ -69,9 +70,25 @@ var loginCmd = &cobra.Command{
 			password = string(bytesPassword)
 			fmt.Print("\n")
 		}
-		err2 := http.Login(email, password)
+		requireMFA, err2 := http.Login(email, password)
 		if err2 != nil {
 			log.Fatalf("error: %v", err2)
+		}
+
+		if requireMFA {
+			if mfaCode == "" {
+				fmt.Print("MFA Code: ")
+				fmt.Scanln(&mfaCode)
+				if len(mfaCode) < 6 && len(mfaCode) > 8 {
+					log.Fatalf("error: mfa code: %s", mfaCode)
+				}
+			}
+
+			err = http.MFAChallenge(strings.TrimSpace(mfaCode))
+			mfaCode = ""
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
 		}
 
 		fmt.Println("Login successful")
@@ -81,5 +98,6 @@ var loginCmd = &cobra.Command{
 func init() {
 	loginCmd.Flags().StringVarP(&email, "email", "e", "", "Email address")
 	loginCmd.Flags().StringVarP(&password, "password", "p", "", "Password")
+	loginCmd.Flags().StringVarP(&mfaCode, "mfa", "m", "", "MFA  Code")
 	rootCmd.AddCommand(loginCmd)
 }

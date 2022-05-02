@@ -31,6 +31,7 @@ var (
 	version                string
 	date                   string
 	email                  string
+	mfaCode                string
 	name                   string
 	socketType             string
 	password               string

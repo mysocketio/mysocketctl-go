@@ -295,12 +295,12 @@ func GetOrgCert(hostname string) (*x509.Certificate, *rsa.PrivateKey, string, st
 	var claims jwt.MapClaims
 	var token, certPath, keyPath string
 
-	if certPath, keyPath, ok = IsClientCertValid(); ok {
-		token, claims, err = MTLSLogin(hostname)
-		if err != nil {
-			return nil, nil, "", "", 0, err
-		}
+	token, claims, err = MTLSLogin(hostname)
+	if err != nil {
+		return nil, nil, "", "", 0, err
+	}
 
+	if certPath, keyPath, ok = IsClientCertValid(); ok {
 		port, err = GetSocketPort(hostname, token)
 		if err != nil {
 			return nil, nil, "", "", 0, err
@@ -310,11 +310,6 @@ func GetOrgCert(hostname string) (*x509.Certificate, *rsa.PrivateKey, string, st
 		if err != nil {
 			return nil, nil, "", "", 0, err
 		}
-		_, claims, err = MTLSLogin(hostname)
-		if err != nil {
-			return nil, nil, "", "", 0, err
-		}
-
 	}
 
 	cert, key, _, _, err := ReadOrgCert(claims["org_id"].(string))

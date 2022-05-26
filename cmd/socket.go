@@ -57,7 +57,7 @@ var socketsListCmd = &cobra.Command{
 		}
 
 		t := table.NewWriter()
-		t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Name"})
+		t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Description"})
 
 		for _, s := range sockets {
 			portsStr = ""
@@ -70,7 +70,7 @@ var socketsListCmd = &cobra.Command{
 				}
 			}
 
-			t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Name})
+			t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Description})
 		}
 		t.SetStyle(table.StyleLight)
 		fmt.Printf("%s\n", t.Render())
@@ -166,6 +166,7 @@ var socketCreateCmd = &cobra.Command{
 		s := http.Socket{}
 		newSocket := &http.Socket{
 			Name:                  name,
+			Description:           description,
 			ProtectedSocket:       protected,
 			SocketType:            socketType,
 			ProtectedUsername:     username,
@@ -262,6 +263,7 @@ func init() {
 	socketCmd.AddCommand(socketShowCmd)
 
 	socketCreateCmd.Flags().StringVarP(&name, "name", "n", "", "Socket name")
+	socketCreateCmd.Flags().StringVarP(&description, "description", "r", "", "Socket description")
 	socketCreateCmd.Flags().BoolVarP(&protected, "protected", "p", false, "Protected, default no")
 	socketCreateCmd.Flags().StringVarP(&username, "username", "u", "", "Username, required when protected set to true")
 	socketCreateCmd.Flags().StringVarP(&password, "password", "", "", "Password, required when protected set to true")

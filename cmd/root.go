@@ -33,6 +33,7 @@ var (
 	email                  string
 	mfaCode                string
 	name                   string
+	description            string
 	socketType             string
 	password               string
 	port                   int
@@ -97,7 +98,7 @@ func print_socket(s http.Socket) string {
 
 	socket_output := ""
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Name"})
+	t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Description"})
 
 	portsStr := ""
 	for _, p := range s.SocketTcpPorts {
@@ -109,7 +110,7 @@ func print_socket(s http.Socket) string {
 		}
 	}
 
-	t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Name})
+	t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Description})
 	t.SetStyle(table.StyleLight)
 	socket_output = socket_output + fmt.Sprintf("%s\n", t.Render())
 

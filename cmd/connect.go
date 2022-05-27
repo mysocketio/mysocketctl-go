@@ -124,6 +124,7 @@ var connectCmd = &cobra.Command{
 
 		connection := &http.Socket{
 			Name:                  name,
+			Description:           description,
 			ProtectedSocket:       protected,
 			SocketType:            socketType,
 			ProtectedUsername:     username,
@@ -197,6 +198,7 @@ func init() {
 	connectCmd.Flags().IntVarP(&port, "port", "p", 0, "Port")
 	connectCmd.Flags().StringVarP(&hostname, "host", "", "127.0.0.1", "Target host: Control where inbound traffic goes. Default localhost")
 	connectCmd.Flags().StringVarP(&name, "name", "n", "", "Service name")
+	connectCmd.Flags().StringVarP(&name, "description", "r", "", "Service description")
 	connectCmd.Flags().BoolVarP(&protected, "protected", "", false, "Protected, default no")
 	connectCmd.Flags().StringVarP(&username, "username", "u", "", "Username, required when protected set to true")
 	connectCmd.Flags().StringVarP(&password, "password", "", "", "Password, required when protected set to true")

@@ -106,6 +106,7 @@ type Socket struct {
 	SocketTcpPorts        []int    `json:"socket_tcp_ports,omitempty"`
 	Dnsname               string   `json:"dnsname,omitempty"`
 	Name                  string   `json:"name,omitempty"`
+	Description           string   `json:"description,omitempty"`
 	SocketType            string   `json:"socket_type,omitempty"`
 	ProtectedSocket       bool     `json:"protected_socket"`
 	ProtectedUsername     string   `json:"protected_username"`

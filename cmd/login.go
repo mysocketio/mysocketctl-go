@@ -65,7 +65,7 @@ var loginCmd = &cobra.Command{
 				deviceIdentifier = fmt.Sprint(claims["identifier"])
 			}
 
-			fmt.Println(`please proceed with the login with the link below:`)
+			fmt.Println(`please login with the link below:`)
 			fmt.Printf("%s/login?device_identifier=%v\n", http.WebUrl(), deviceIdentifier)
 
 			for {

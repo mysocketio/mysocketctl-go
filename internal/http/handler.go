@@ -181,8 +181,6 @@ func CreateDeviceAuthorization() (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 {
-		var errorMessage ErrorMessage
-		json.NewDecoder(resp.Body).Decode(&errorMessage)
 		return "", ErrUnauthorized
 	}
 

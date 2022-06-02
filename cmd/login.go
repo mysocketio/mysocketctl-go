@@ -54,10 +54,7 @@ var loginCmd = &cobra.Command{
 				log.Fatalf("error: %v", err)
 			}
 
-			sessionJWT, err := jwt.Parse(sessionToken, nil)
-			if err != nil {
-				log.Fatalf("error: %v", err)
-			}
+			sessionJWT, _ := jwt.Parse(sessionToken, nil)
 
 			var deviceIdentifier string
 			if sessionJWT != nil {

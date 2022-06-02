@@ -16,13 +16,16 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"os"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -45,6 +48,45 @@ var loginCmd = &cobra.Command{
 		}
 		// end version check
 
+		if email == "" && password == "" && sso != "" {
+			sessionToken, err := http.CreateDeviceAuthorization()
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
+
+			sessionJWT, err := jwt.Parse(sessionToken, nil)
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
+
+			var deviceIdentifier string
+			if sessionJWT != nil {
+				claims := sessionJWT.Claims.(jwt.MapClaims)
+				deviceIdentifier = fmt.Sprint(claims["identifier"])
+			}
+
+			fmt.Println(`please proceed with the login with the link below:`)
+			fmt.Printf("%s/login?device_identifier=%v\n", http.WebUrl(), deviceIdentifier)
+
+			for {
+				token, err := http.GetDeviceAuthorization(sessionToken)
+				if err != nil {
+					if errors.Is(err, http.ErrUnauthorized) {
+						log.Fatalf("We coudn't log you in, your session is expired or you not authorized to perform this action: %v", err)
+					}
+
+					log.Fatalf("We coudn't log you in, make sure that you properly logged in the link above: %v", err)
+				}
+
+				if token.Token != "" && token.State != "not_authorized" {
+					fmt.Println("Login successful")
+					http.SaveTokenInDisk(token.Token)
+					return
+				}
+
+				time.Sleep(5 * time.Second)
+			}
+		}
 		// If email is not provided, then prompt for it
 		if email == "" {
 			fmt.Print("Email: ")
@@ -98,6 +140,7 @@ var loginCmd = &cobra.Command{
 func init() {
 	loginCmd.Flags().StringVarP(&email, "email", "e", "", "Email address")
 	loginCmd.Flags().StringVarP(&password, "password", "p", "", "Password")
+	loginCmd.Flags().StringVarP(&sso, "sso", "s", "sso", "SSO login")
 	loginCmd.Flags().StringVarP(&mfaCode, "mfa", "m", "", "MFA  Code")
 	rootCmd.AddCommand(loginCmd)
 }

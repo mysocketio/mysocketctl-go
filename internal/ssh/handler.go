@@ -339,6 +339,8 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 
 func handleClient(client net.Conn, remote net.Conn) {
 	defer client.Close()
+	defer remote.Close()
+
 	chDone := make(chan bool, 1)
 
 	// Start remote -> local data transfer

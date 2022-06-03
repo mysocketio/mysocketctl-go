@@ -27,6 +27,7 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
+	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -62,8 +63,13 @@ var loginCmd = &cobra.Command{
 				deviceIdentifier = fmt.Sprint(claims["identifier"])
 			}
 
+			url := fmt.Sprintf("%s/login?device_identifier=%v\n", http.WebUrl(), deviceIdentifier)
 			fmt.Println(`please login with the link below:`)
-			fmt.Printf("%s/login?device_identifier=%v\n", http.WebUrl(), deviceIdentifier)
+			fmt.Println(url)
+
+			if err := open.Run(url); err != nil {
+				fmt.Printf("failed opening browser. Open the url (%s) in a browser\n", url)
+			}
 
 			for {
 				token, err := http.GetDeviceAuthorization(sessionToken)

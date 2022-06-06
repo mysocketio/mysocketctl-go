@@ -19,6 +19,12 @@ const (
 	download_url = "https://download.edge.mysocket.io"
 )
 
+var ErrUnauthorized = errors.New("unaouthorized")
+
+type ErrorMessage struct {
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
 type Client struct {
 	token string
 }
@@ -31,6 +37,14 @@ func apiUrl() string {
 		return os.Getenv("MYSOCKET_API")
 	} else {
 		return "https://api.mysocket.io"
+	}
+}
+
+func WebUrl() string {
+	if os.Getenv("MYSOCKET_WEB_URL") != "" {
+		return os.Getenv("MYSOCKET_WEB_URL")
+	} else {
+		return "https://portal.mysocket.io"
 	}
 }
 
@@ -158,6 +172,44 @@ func MFAChallenge(code string) error {
 	return nil
 }
 
+func CreateDeviceAuthorization() (string, error) {
+	resp, err := h.Post(apiUrl()+"/device_authorizations", "application/json", nil)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return "", ErrUnauthorized
+	}
+
+	if resp.StatusCode == 429 {
+		responseData, _ := ioutil.ReadAll(resp.Body)
+		return "", fmt.Errorf("unaouthorized %v", string(responseData))
+	}
+
+	if resp.StatusCode != 200 {
+		var errorMessage ErrorMessage
+		json.NewDecoder(resp.Body).Decode(&errorMessage)
+
+		return "", fmt.Errorf(errorMessage.ErrorMessage)
+	}
+
+	type sessionToken struct {
+		Token string `json:"token,omitempty"`
+	}
+
+	var ssToken sessionToken
+	json.NewDecoder(resp.Body).Decode(&ssToken)
+
+	if ssToken.Token != "" {
+		return ssToken.Token, nil
+	}
+
+	return "", errors.New("couldn't fetch the temporary token")
+}
+
 func Login(email, password string) (bool, error) {
 	c := &Client{}
 	form := loginForm{Email: email, Password: password}
@@ -188,22 +240,30 @@ func Login(email, password string) (bool, error) {
 
 	c.token = res.Token
 
-	f, err := os.Create(tokenfile())
-	if err != nil {
+	if err := SaveTokenInDisk(c.token); err != nil {
 		return false, err
-	}
-
-	if err := os.Chmod(tokenfile(), 0600); err != nil {
-		return false, err
-	}
-
-	defer f.Close()
-	_, err2 := f.WriteString(fmt.Sprintf("%s\n", c.token))
-	if err2 != nil {
-		return false, err2
 	}
 
 	return res.MFA, nil
+}
+
+func SaveTokenInDisk(accessToken string) error {
+	f, err := os.Create(tokenfile())
+	if err != nil {
+		return err
+	}
+
+	if err := os.Chmod(tokenfile(), 0600); err != nil {
+		return err
+	}
+
+	defer f.Close()
+	_, err2 := f.WriteString(fmt.Sprintf("%s\n", accessToken))
+	if err2 != nil {
+		return err2
+	}
+
+	return nil
 }
 
 func Register(name, email, password, sshkey string) error {
@@ -361,6 +421,33 @@ func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
 		return nil, errors.New("failed to decode tunnel response")
 	}
 	return &tunnel, nil
+}
+
+func GetDeviceAuthorization(sessionToken string) (*SessionTokenForm, error) {
+	client := &h.Client{}
+	req, _ := h.NewRequest("GET", apiUrl()+"/device_authorizations", nil)
+	req.Header.Add("x-access-token", sessionToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return nil, ErrUnauthorized
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("failed to get device_authorization (%d)", resp.StatusCode)
+	}
+
+	var form SessionTokenForm
+	err = json.NewDecoder(resp.Body).Decode(&form)
+	if err != nil {
+		return nil, errors.New("failed to decode device auth response")
+	}
+	return &form, nil
 }
 
 func GetUserID() (*string, *string, error) {

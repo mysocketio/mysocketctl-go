@@ -57,6 +57,7 @@ var (
 	upstream_type          string
 	localssh               bool
 	orgName                string
+	sso                    string
 )
 
 // rootCmd represents the base command when called without any subcommands

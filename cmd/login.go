@@ -16,14 +16,18 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"os"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
+	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -45,6 +49,47 @@ var loginCmd = &cobra.Command{
 		}
 		// end version check
 
+		if email == "" && password == "" && sso != "" {
+			sessionToken, err := http.CreateDeviceAuthorization()
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
+
+			sessionJWT, _ := jwt.Parse(sessionToken, nil)
+
+			var deviceIdentifier string
+			if sessionJWT != nil {
+				claims := sessionJWT.Claims.(jwt.MapClaims)
+				deviceIdentifier = fmt.Sprint(claims["identifier"])
+			}
+
+			url := fmt.Sprintf("%s/login?device_identifier=%v\n", http.WebUrl(), deviceIdentifier)
+			fmt.Println(`please login with the link below:`)
+			fmt.Println(url)
+
+			if err := open.Run(url); err != nil {
+				fmt.Printf("failed opening browser. Open the url (%s) in a browser\n", url)
+			}
+
+			for {
+				token, err := http.GetDeviceAuthorization(sessionToken)
+				if err != nil {
+					if errors.Is(err, http.ErrUnauthorized) {
+						log.Fatalf("We couldn't log you in, your session is expired or you are not authorized to perform this action: %v", err)
+					}
+
+					log.Fatalf("We couldn't log you in, make sure that you are properly logged in using the link above: %v", err)
+				}
+
+				if token.Token != "" && token.State != "not_authorized" {
+					fmt.Println("Login successful")
+					http.SaveTokenInDisk(token.Token)
+					return
+				}
+
+				time.Sleep(5 * time.Second)
+			}
+		}
 		// If email is not provided, then prompt for it
 		if email == "" {
 			fmt.Print("Email: ")
@@ -98,6 +143,7 @@ var loginCmd = &cobra.Command{
 func init() {
 	loginCmd.Flags().StringVarP(&email, "email", "e", "", "Email address")
 	loginCmd.Flags().StringVarP(&password, "password", "p", "", "Password")
+	loginCmd.Flags().StringVarP(&sso, "sso", "s", "sso", "SSO login")
 	loginCmd.Flags().StringVarP(&mfaCode, "mfa", "m", "", "MFA  Code")
 	rootCmd.AddCommand(loginCmd)
 }

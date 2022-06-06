@@ -18,6 +18,7 @@ require (
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
 	github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0
 	github.com/satori/go.uuid v1.2.0
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/takama/daemon v1.0.0
 	github.com/txn2/txeh v1.3.0

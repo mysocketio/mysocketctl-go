@@ -30,6 +30,12 @@ type TokenForm struct {
 	MFA   bool   `json:"require_mfa"`
 }
 
+type SessionTokenForm struct {
+	Token string `json:"token"`
+	MFA   bool   `json:"require_mfa"`
+	State string `json:"state"`
+}
+
 type SwitchOrgRequest struct {
 	OrgName string `json:"org_name"`
 }

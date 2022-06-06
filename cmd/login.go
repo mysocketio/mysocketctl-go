@@ -75,10 +75,10 @@ var loginCmd = &cobra.Command{
 				token, err := http.GetDeviceAuthorization(sessionToken)
 				if err != nil {
 					if errors.Is(err, http.ErrUnauthorized) {
-						log.Fatalf("We coudn't log you in, your session is expired or or you are not authorized to perform this action: %v", err)
+						log.Fatalf("We couldn't log you in, your session is expired or you are not authorized to perform this action: %v", err)
 					}
 
-					log.Fatalf("We coudn't log you in, make sure that you properly logged in the link above: %v", err)
+					log.Fatalf("We couldn't log you in, make sure that you are properly logged in using the link above: %v", err)
 				}
 
 				if token.Token != "" && token.State != "not_authorized" {

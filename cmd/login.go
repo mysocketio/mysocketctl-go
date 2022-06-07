@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ var loginCmd = &cobra.Command{
 				deviceIdentifier = fmt.Sprint(claims["identifier"])
 			}
 
-			url := fmt.Sprintf("%s/login?device_identifier=%v\n", http.WebUrl(), deviceIdentifier)
+			url := fmt.Sprintf("%s/login?device_identifier=%v", http.WebUrl(), url.QueryEscape(deviceIdentifier))
 			fmt.Println(`please login with the link below:`)
 			fmt.Println(url)
 

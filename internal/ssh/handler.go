@@ -135,7 +135,7 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 		if err == nil {
 			break
 		}
-		log.Println(fmt.Sprintf("Unable to get signed cert from API, will try again in %d seconds. Attempt %d of 10", 2*i, i))
+		log.Printf("Unable to get signed cert from API, will try again in %d seconds. Attempt %d of 10\n", 2*i, i)
 
 		d := time.Duration(2*i) * time.Second
 		time.Sleep(d)
@@ -215,6 +215,20 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		}
 	}()
 
+	proxyMatch, _ := regexp.Compile("^http(s)?://")
+	var proxyDialer proxy.Dialer
+	if proxyMatch.MatchString(proxyHost) {
+		proxyURL, err := url.Parse(proxyHost)
+		if err != nil {
+			log.Fatalf("Invalid proxy URL: %s", err)
+		}
+		proxy.RegisterDialerType("http", newHttpProxy)
+		proxy.RegisterDialerType("https", newHttpProxy)
+		proxyDialer, _ = proxy.FromURL(proxyURL, proxy.Direct)
+	} else {
+		proxyDialer = proxy.Direct
+	}
+
 	for {
 		// Let's fetch a short lived signed cert from api.mysocket.io
 		// We'll use that to authenticate. This returns a signer object.
@@ -233,107 +247,134 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		fmt.Println("\nConnecting to Server: " + sshServer() + "\n")
 		time.Sleep(1 * time.Second)
 
-		/*
+		sshConnect(proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+	}
+}
 
-			serverConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", mySocketSSHServer, 22), sshConfig)
-			if err != nil {
-				log.Printf("Dial INTO remote server error: %s", err)
-				continue
-			}
-			defer serverConn.Close()
-		*/
+func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *mysocketctlhttp.Tunnel, port int, targethost string, localssh bool, sshCa string) {
+	remoteHost := net.JoinHostPort(sshServer(), "22")
 
-		// check Dialer
-		proxyMatch, _ := regexp.Compile("^http(s)?://")
-		var proxyDialer proxy.Dialer
-		if proxyMatch.MatchString(proxyHost) {
-			proxyURL, err := url.Parse(proxyHost)
-			if err != nil {
-				log.Fatalf("Invalid proxy URL: %s", err)
-			}
-			proxy.RegisterDialerType("http", newHttpProxy)
-			proxy.RegisterDialerType("https", newHttpProxy)
-			proxyDialer, _ = proxy.FromURL(proxyURL, proxy.Direct)
-		} else {
-			proxyDialer = proxy.Direct
-		}
+	conn, err := proxyDialer.Dial("tcp", remoteHost)
+	if err != nil {
+		log.Printf("Dial INTO remote server error: %s", err)
+		return
+	}
 
-		remoteHost := net.JoinHostPort(sshServer(), "22")
-		// Dial to host:port
-		conn, err := proxyDialer.Dial("tcp", remoteHost)
-		if err != nil {
-			log.Printf("Dial INTO remote server error: %s", err)
-			continue
-		}
+	defer conn.Close()
 
-		sshCon, channel, req, err := ssh.NewClientConn(conn, remoteHost, sshConfig)
-		if err != nil {
-			log.Printf("Dial INTO remote server error: %s", err)
-			continue
-		}
+	sshCon, channel, req, err := ssh.NewClientConn(conn, remoteHost, sshConfig)
+	if err != nil {
+		log.Printf("Dial INTO remote server error: %s", err)
+		return
+	}
+	defer sshCon.Close()
 
-		// Create *ssh.Client
-		serverConn := ssh.NewClient(sshCon, channel, req)
-		defer serverConn.Close()
+	sshClient := ssh.NewClient(sshCon, channel, req)
+	defer sshClient.Close()
 
-		listener, err := serverConn.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
-		if err != nil {
-			log.Printf("Listen open port ON remote server on port %d error: %s", tunnel.LocalPort, err)
-			serverConn.Close()
-			continue
-		}
-		defer listener.Close()
+	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
+	if err != nil {
+		log.Printf("Listen open port ON remote server on port %d error: %s", tunnel.LocalPort, err)
+		return
+	}
+	defer listener.Close()
 
-		session, err := serverConn.NewSession()
-		if err != nil {
-			log.Printf("Failed to create session: %v", err)
-			continue
-		}
-		defer session.Close()
+	session, err := sshClient.NewSession()
+	if err != nil {
+		log.Printf("Failed to create session: %v", err)
+		return
+	}
+	defer session.Close()
 
-		session.Stdout = os.Stdout
-		modes := ssh.TerminalModes{}
+	session.Stdout = os.Stdout
+	modes := ssh.TerminalModes{}
 
-		if err := session.RequestPty("xterm-256color", 80, 40, modes); err != nil {
-			log.Printf("request for pseudo terminal failed: %s", err)
-			continue
-		}
+	if err := session.RequestPty("xterm-256color", 80, 40, modes); err != nil {
+		log.Printf("request for pseudo terminal failed: %s", err)
+		return
+	}
 
-		if err := session.Shell(); err != nil {
-			log.Print(err)
-			continue
-		}
+	if err := session.Shell(); err != nil {
+		log.Print(err)
+		return
+	}
 
-		if localssh {
-			sshServer := newServer(sshCa)
-			go sshServer.Serve(listener)
-		} else {
+	if localssh {
+		sshServer := newServer(sshCa)
+		go sshServer.Serve(listener)
+	} else {
+		go func() {
+			for {
+				client, err := listener.Accept()
+				if err != nil {
+					log.Printf("Tunnel Connection accept error: %v", err)
+					return
+				}
 
-			go func() {
-				for {
-					client, err := listener.Accept()
+				go func() {
+					local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
 					if err != nil {
-						log.Printf("Tunnel Connection accept error: %v", err)
+						log.Printf("Dial INTO local service error: %s", err)
 						return
 					}
 
-					go func() {
-						local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
-						if err != nil {
-							log.Printf("Dial INTO local service error: %s", err)
-							return
-						}
+					go handleClient(client, local)
+				}()
+			}
+		}()
+	}
 
-						go handleClient(client, local)
-					}()
+	done := make(chan bool, 1)
+	defer func() { done <- true }()
+	go keepAlive(sshClient, conn, done)
+
+	if err := session.Wait(); err != nil {
+		log.Printf("ssh session error: %v", err)
+	}
+}
+
+func keepAlive(sshClient *ssh.Client, conn net.Conn, done chan bool) {
+	t := time.NewTicker(10 * time.Second)
+	max := 4
+	n := 0
+
+	defer t.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-t.C:
+			aliveChan := make(chan bool, 1)
+
+			go func() {
+				_, _, err := sshClient.SendRequest("keepalive@openssh.com", true, nil)
+				if err != nil {
+					aliveChan <- false
+				} else {
+					aliveChan <- true
 				}
 			}()
-		}
 
-		if err := session.Wait(); err != nil {
-			log.Printf("ssh session error: %v", err)
+			select {
+			case <-time.After(5 * time.Second):
+				n++
+				// log.Printf("keepalive timeout (%d/%d)\n", n, max)
+			case alive := <-aliveChan:
+				if !alive {
+					// log.Printf("keepalive timeout (%d/%d)\n", n, max)
+					n++
+				} else {
+					n = 0
+				}
+			}
+
+			if n >= max {
+				log.Println("ssh keepalive timeout, disconnecting")
+				sshClient.Close()
+				return
+			}
 		}
-		serverConn.Close()
 	}
 }
 
@@ -347,7 +388,7 @@ func handleClient(client net.Conn, remote net.Conn) {
 	go func() {
 		_, err := io.Copy(client, remote)
 		if err != nil {
-			log.Println(fmt.Sprintf("error while copy remote->local: %s", err))
+			log.Printf("error while copy remote->local: %s\n", err)
 		}
 		chDone <- true
 	}()
@@ -356,7 +397,7 @@ func handleClient(client net.Conn, remote net.Conn) {
 	go func() {
 		_, err := io.Copy(remote, client)
 		if err != nil {
-			log.Println(fmt.Sprintf("error while copy local->remote: %s", err))
+			log.Printf("error while copy local->remote: %s\n", err)
 		}
 		chDone <- true
 	}()
@@ -372,7 +413,7 @@ func authWithPrivateKeys(keyFiles []string, fatalOnError bool) ([]ssh.Signer, er
 		b, err := ioutil.ReadFile(file)
 		if err != nil {
 			if fatalOnError {
-				log.Fatalln(fmt.Sprintf("Cannot read SSH key file %s (%v)", file, err.Error()))
+				log.Fatalf("Cannot read SSH key file %s (%v)\n", file, err.Error())
 			} else {
 				continue
 			}
@@ -380,7 +421,7 @@ func authWithPrivateKeys(keyFiles []string, fatalOnError bool) ([]ssh.Signer, er
 		signer, err := ssh.ParsePrivateKey(b)
 		if err != nil {
 			if fatalOnError {
-				log.Fatalln(fmt.Sprintf("Cannot read SSH key file %s (%v)", file, err.Error()))
+				log.Fatalf("Cannot read SSH key file %s (%v)\n", file, err.Error())
 			} else {
 				continue
 			}

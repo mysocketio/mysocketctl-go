@@ -25,6 +25,7 @@ import (
 	"os/user"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -381,7 +382,7 @@ func stream_copy(src io.Reader, dst io.Writer) <-chan int {
 			var err error
 			nBytes, err = src.Read(buf)
 			if err != nil {
-				if err != io.EOF {
+				if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 					log.Printf("Read error: %s\n", err)
 				}
 				break

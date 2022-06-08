@@ -179,7 +179,7 @@ var socketCreateCmd = &cobra.Command{
 			UpstreamHttpHostname:  upstream_http_hostname,
 			UpstreamType:          upstreamType,
 		}
-		err = client.Request("POST", "socket", &s, newSocket)
+		err = client.WithVersion(version).Request("POST", "socket", &s, newSocket)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}

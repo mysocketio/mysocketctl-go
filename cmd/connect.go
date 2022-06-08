@@ -144,7 +144,7 @@ var connectCmd = &cobra.Command{
 		}
 
 		c := http.Socket{}
-		err = client.Request("POST", "connect", &c, connection)
+		err = client.WithVersion(version).Request("POST", "connect", &c, connection)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}

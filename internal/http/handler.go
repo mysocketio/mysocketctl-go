@@ -26,7 +26,8 @@ type ErrorMessage struct {
 }
 
 type Client struct {
-	token string
+	token   string
+	version string
 }
 
 func APIURL() string {
@@ -73,12 +74,26 @@ func NewClient() (*Client, error) {
 	return c, nil
 }
 
+func (c *Client) WithVersion(version string) *Client {
+	if version == "" {
+		return c
+	}
+	c2 := new(Client)
+	*c2 = *c
+	c2.version = version
+	return c2
+}
+
 func (c *Client) Request(method string, url string, target interface{}, data interface{}) error {
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
 	req, _ := h.NewRequest(method, fmt.Sprintf("%s/%s", apiUrl(), url), body)
 	req.Header.Add("x-access-token", c.token)
+	req.Header.Add("x-client-requested-with", "mysocketctl")
+	if c.version != "" {
+		req.Header.Add("x-client-version", c.version)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &h.Client{}
 	resp, err := client.Do(req)

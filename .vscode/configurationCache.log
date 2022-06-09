@@ -1,1 +1,0 @@
-{"buildTargets":["all","build","build-all","build-linux","clean","lint","moddownload","release","run","test"],"launchTargets":[],"customConfigurationProvider":{"workspaceBrowse":{"browsePath":[],"compilerArgs":[]},"fileIndex":[]}}

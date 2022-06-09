@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt"
 )
 
 const (

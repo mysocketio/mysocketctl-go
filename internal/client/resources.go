@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/fatih/color"
+	jwt "github.com/golang-jwt/jwt"
 	"github.com/mysocketio/mysocketctl-go/internal/enum"
 	internalhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 )

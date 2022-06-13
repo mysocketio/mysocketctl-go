@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt"
 	"github.com/moby/term"
 	"github.com/mysocketio/mysocketctl-go/internal/client/password"
 	"github.com/pavel-v-chernykh/keystore-go/v4"

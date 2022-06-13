@@ -26,7 +26,7 @@ import (
 
 	"os"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/cobra"

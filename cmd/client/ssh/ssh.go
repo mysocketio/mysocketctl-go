@@ -7,11 +7,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/moby/term"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
 	"github.com/mysocketio/mysocketctl-go/internal/enum"
+	mysocketSSH "github.com/mysocketio/mysocketctl-go/internal/ssh"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 )
@@ -25,7 +27,6 @@ func AddCommandsTo(client *cobra.Command) {
 	client.AddCommand(sshCmd)
 	sshCmd.Flags().StringVarP(&hostname, "host", "", "", "The ssh mysocket target host")
 	sshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
-	sshCmd.MarkFlagRequired("username")
 
 	client.AddCommand(keySignCmd)
 	keySignCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
@@ -37,6 +38,17 @@ var sshCmd = &cobra.Command{
 	Use:   "ssh",
 	Short: "Connect to a mysocket ssh service",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			hostnameSlice := strings.SplitN(args[0], "@", 2)
+			switch len(hostnameSlice) {
+			case 1:
+				hostname = hostnameSlice[0]
+			case 2:
+				username = hostnameSlice[0]
+				hostname = hostnameSlice[1]
+			}
+		}
+
 		if username == "" {
 			return errors.New("empty username not allowed")
 		}
@@ -170,6 +182,10 @@ var sshCmd = &cobra.Command{
 			return fmt.Errorf("session shell: %w", err)
 		}
 
+		done := make(chan bool, 1)
+		defer func() { done <- true }()
+
+		go mysocketSSH.KeepAlive(sshClient, done)
 		if err := session.Wait(); err != nil {
 			// gracefully handle ssh.ExitMissingError. It's returned if a session is torn down cleanly,
 			// but the server sends no confirmation of the exit status

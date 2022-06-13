@@ -326,14 +326,14 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 
 	done := make(chan bool, 1)
 	defer func() { done <- true }()
-	go keepAlive(sshClient, conn, done)
+	go KeepAlive(sshClient, done)
 
 	if err := session.Wait(); err != nil {
 		log.Printf("ssh session error: %v", err)
 	}
 }
 
-func keepAlive(sshClient *ssh.Client, conn net.Conn, done chan bool) {
+func KeepAlive(sshClient *ssh.Client, done chan bool) {
 	t := time.NewTicker(10 * time.Second)
 	max := 4
 	n := 0
@@ -359,10 +359,8 @@ func keepAlive(sshClient *ssh.Client, conn net.Conn, done chan bool) {
 			select {
 			case <-time.After(5 * time.Second):
 				n++
-				// log.Printf("keepalive timeout (%d/%d)\n", n, max)
 			case alive := <-aliveChan:
 				if !alive {
-					// log.Printf("keepalive timeout (%d/%d)\n", n, max)
 					n++
 				} else {
 					n = 0

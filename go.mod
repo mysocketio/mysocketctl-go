@@ -8,7 +8,7 @@ require (
 	github.com/creack/pty v1.1.11
 	github.com/fatih/color v1.7.0
 	github.com/gliderlabs/ssh v0.3.3
-	github.com/go-openapi/strfmt v0.20.0 // indirect
+	github.com/go-openapi/strfmt v0.21.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/jbenet/go-os-rename v0.0.0-20150428075126-3ac97f61ef67
 	github.com/jedib0t/go-pretty v4.3.0+incompatible

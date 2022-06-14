@@ -413,7 +413,7 @@ func init() {
 	clientCertFetchCmd.MarkFlagRequired("host")
 
 	clientCmd.AddCommand(clientLoginCmd)
-	clientLoginCmd.Flags().StringVarP(&orgID, "org", "", "", "The mysocket organization id / email")
+	clientLoginCmd.Flags().StringVarP(&orgID, "org", "", "", "The mysocket organization domain name (without .edge.mysocket.io)")
 	clientLoginCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	clientLoginCmd.MarkFlagRequired("org")
 

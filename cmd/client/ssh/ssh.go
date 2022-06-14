@@ -35,8 +35,9 @@ func AddCommandsTo(client *cobra.Command) {
 
 // sshCmd represents the client ssh keysign command
 var sshCmd = &cobra.Command{
-	Use:   "ssh",
-	Short: "Connect to a mysocket ssh service",
+	Use:               "ssh",
+	Short:             "Connect to a mysocket ssh service",
+	ValidArgsFunction: client.AutocompleteHost,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			hostnameSlice := strings.SplitN(args[0], "@", 2)

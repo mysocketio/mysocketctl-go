@@ -18,6 +18,7 @@ import (
 	jwt "github.com/golang-jwt/jwt"
 	"github.com/mysocketio/mysocketctl-go/internal/enum"
 	internalhttp "github.com/mysocketio/mysocketctl-go/internal/http"
+	"github.com/spf13/cobra"
 )
 
 func Login(orgID string) (token string, claims jwt.MapClaims, err error) {
@@ -261,6 +262,39 @@ func ReadTokenOrAskToLogIn() (token string, err error) {
 		}
 	}
 	return token, nil
+}
+
+func AutocompleteHost(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var hosts []string
+
+	valid, token, _, err := IsExistingClientTokenValid("")
+	if !valid || err != nil {
+		return hosts, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	resources, err := FetchResources(token, "ssh")
+	if err != nil {
+		return hosts, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	toCompleteSlice := strings.SplitN(toComplete, "@", 2)
+	host := toCompleteSlice[len(toCompleteSlice)-1]
+
+	for _, res := range resources.Resources {
+		for _, domain := range res.Domains {
+			if strings.HasPrefix(domain, host) {
+				var user string
+
+				if len(toCompleteSlice) == 2 {
+					user = fmt.Sprintf("%s@", toCompleteSlice[0])
+				}
+				hosts = append(hosts, fmt.Sprintf("%s%s", user, domain))
+
+			}
+		}
+	}
+
+	return hosts, cobra.ShellCompDirectiveNoFileComp
 }
 
 func PickHost(inputHost string, socketTypes ...string) (pickedHost string, err error) {

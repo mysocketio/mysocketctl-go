@@ -318,7 +318,7 @@ func PickHost(inputHost string, socketTypes ...string) (pickedHost string, err e
 
 		var hosts []string
 		for _, res := range resources.Resources {
-			hostToShow := res.DomainsToString() + " " + blue.Sprintf("[%s]", res.SocketName)
+			hostToShow := res.DomainsToString() + " " + blue.Sprintf("[%s]", strings.Split(res.Description, ";")[0])
 			hostToReturn := res.FirstDomain("")
 			answers[hostToShow] = hostToReturn
 			hosts = append(hosts, hostToShow)

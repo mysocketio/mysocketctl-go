@@ -40,13 +40,17 @@ var hostsCmd = &cobra.Command{
 		blue := color.New(color.FgBlue)
 
 		tbl := table.NewWriter()
-		tbl.AppendHeader(table.Row{"DNS Name", "Type", "Name"})
+		tbl.AppendHeader(table.Row{"DNS Name", "Type", "Description"})
 		for _, res := range resources.Resources {
 			instruction := res.Instruction()
 			if instruction != "" {
 				instruction = "\n" + blue.Sprint(instruction)
 			}
-			tbl.AppendRow(table.Row{res.DomainsToString(), strings.ToUpper(res.SocketType), res.SocketName + instruction})
+			tbl.AppendRow(table.Row{
+				res.DomainsToString(),
+				strings.ToUpper(res.SocketType),
+				strings.Split(res.Description, ";")[0] + instruction,
+			})
 		}
 		tbl.SetAutoIndex(true)
 		tbl.Style().Options.SeparateRows = true

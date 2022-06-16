@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/mysocketio/mysocketctl-go/internal/enum"
@@ -51,6 +52,7 @@ type ClientResource struct {
 	IPAddress     string   `json:"ip_address,omitempty"`
 	SocketType    string   `json:"socket_type,omitempty"`
 	SocketName    string   `json:"socket_name,omitempty"`
+	Description   string   `json:"description,omitempty"`
 	SocketPorts   []int    `json:"socket_ports,omitempty"`
 	Domains       []string `json:"domains,omitempty"`
 }
@@ -64,6 +66,16 @@ func (c ClientResource) FirstDomain(defaultValue string) string {
 }
 
 func (c ClientResource) DomainsToString() string {
+	re := regexp.MustCompile(`edge\.(?:staging\.)?mysocket\.io$`)
+	var domainsNotOwnedByUs []string
+	for _, domain := range c.Domains {
+		if !re.MatchString(domain) {
+			domainsNotOwnedByUs = append(domainsNotOwnedByUs, domain)
+		}
+	}
+	if len(domainsNotOwnedByUs) > 0 {
+		return strings.Join(domainsNotOwnedByUs, ", ")
+	}
 	return strings.Join(c.Domains, ", ")
 }
 

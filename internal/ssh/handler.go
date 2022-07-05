@@ -384,19 +384,13 @@ func handleClient(client net.Conn, remote net.Conn) {
 
 	// Start remote -> local data transfer
 	go func() {
-		_, err := io.Copy(client, remote)
-		if err != nil {
-			log.Printf("error while copy remote->local: %s\n", err)
-		}
+		io.Copy(client, remote)
 		chDone <- true
 	}()
 
 	// Start local -> remote data transfer
 	go func() {
-		_, err := io.Copy(remote, client)
-		if err != nil {
-			log.Printf("error while copy local->remote: %s\n", err)
-		}
+		io.Copy(remote, client)
 		chDone <- true
 	}()
 

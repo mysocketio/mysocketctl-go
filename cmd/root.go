@@ -58,6 +58,7 @@ var (
 	localssh               bool
 	orgName                string
 	sso                    string
+	connectorConfig        string
 )
 
 // rootCmd represents the base command when called without any subcommands

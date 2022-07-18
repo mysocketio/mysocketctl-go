@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
+	github.com/aws/aws-sdk-go v1.44.54
 	github.com/creack/pty v1.1.11
 	github.com/fatih/color v1.7.0
 	github.com/gliderlabs/ssh v0.3.3
@@ -20,10 +21,12 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.1.1
+	github.com/spf13/viper v1.7.0
 	github.com/takama/daemon v1.0.0
 	github.com/txn2/txeh v1.3.0
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )

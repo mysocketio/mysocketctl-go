@@ -74,6 +74,24 @@ func NewClient() (*Client, error) {
 	return c, nil
 }
 
+func NewClientWithAccessToken(token string) (*Client, error) {
+	var accessToken string
+
+	if token != "" {
+		accessToken = token
+	} else {
+		token, err := GetToken()
+		if err != nil {
+			return nil, err
+		}
+		accessToken = token
+	}
+
+	c := &Client{token: accessToken}
+
+	return c, nil
+}
+
 func (c *Client) WithVersion(version string) *Client {
 	if version == "" {
 		return c
@@ -81,6 +99,16 @@ func (c *Client) WithVersion(version string) *Client {
 	c2 := new(Client)
 	*c2 = *c
 	c2.version = version
+	return c2
+}
+
+func (c *Client) WithAccessToken(token string) *Client {
+	if token == "" {
+		return c
+	}
+	c2 := new(Client)
+	*c2 = *c
+	c2.token = token
 	return c2
 }
 
@@ -472,6 +500,30 @@ func GetUserID() (*string, *string, error) {
 	}
 
 	token, err := jwt.Parse(tokenStr, nil)
+	if token == nil {
+		return nil, nil, err
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	tokenUserId := fmt.Sprintf("%v", claims["user_id"])
+	userID := strings.ReplaceAll(tokenUserId, "-", "")
+
+	return &userID, &tokenUserId, nil
+}
+
+func GetUserIDFromAccessToken(accessToken string) (*string, *string, error) {
+	var rawToken string
+	if accessToken != "" {
+		rawToken = accessToken
+	} else {
+		tokenStr, err := GetToken()
+		if err != nil {
+			return nil, nil, err
+		}
+		rawToken = tokenStr
+	}
+
+	token, err := jwt.Parse(rawToken, nil)
 	if token == nil {
 		return nil, nil, err
 	}

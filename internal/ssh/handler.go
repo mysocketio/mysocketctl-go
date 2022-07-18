@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,6 +21,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
+	"github.com/mysocketio/mysocketctl-go/internal/api"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	mysocketctlhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -50,7 +53,7 @@ func sshServer() string {
 	}
 }
 
-func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) {
+func getSshCert(userId string, socketID string, tunnelID string, accessToken string) (s ssh.Signer) {
 
 	// First check if we already have a mysocket key pair
 
@@ -124,7 +127,7 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 		SSHPublicKey: strings.TrimRight(string(data), "\n"),
 	}
 	//log.Println(newCsr)
-	client, err := mysocketctlhttp.NewClient()
+	client, err := mysocketctlhttp.NewClientWithAccessToken(accessToken)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -162,8 +165,8 @@ func getSshCert(userId string, socketID string, tunnelID string) (s ssh.Signer) 
 	return certSigner
 }
 
-func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string) error {
-	tunnel, err := mysocketctlhttp.GetTunnel(socketID, tunnelID)
+func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string, accessToken string) error {
+	tunnel, err := api.NewAPI(accessToken).GetTunnel(context.Background(), socketID, tunnelID)
 
 	if err != nil {
 		log.Fatalf("error: %v", err)
@@ -234,7 +237,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		// We'll use that to authenticate. This returns a signer object.
 		// for now we'll just add it to the signers list.
 		// In future, this is the only auth method we should use.
-		sshCert := getSshCert(userID, socketID, tunnelID)
+		sshCert := getSshCert(userID, socketID, tunnelID, accessToken)
 		// If we got a cert, we use that for auth method. Otherwise use static keys
 		if sshCert != nil {
 			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(sshCert)}
@@ -251,7 +254,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 	}
 }
 
-func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *mysocketctlhttp.Tunnel, port int, targethost string, localssh bool, sshCa string) {
+func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localssh bool, sshCa string) {
 	remoteHost := net.JoinHostPort(sshServer(), "22")
 
 	conn, err := proxyDialer.Dial("tcp", remoteHost)

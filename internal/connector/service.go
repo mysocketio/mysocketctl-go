@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/mysocketio/mysocketctl-go/internal/api"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
@@ -48,7 +51,6 @@ func (c *ConnectorService) Start() error {
 	log.Println("starting the connector service")
 
 	ctx, cancel := context.WithCancel(context.Background())
-	g, ctx := errgroup.WithContext(ctx)
 	var accessToken string
 	var err error
 
@@ -65,15 +67,8 @@ func (c *ConnectorService) Start() error {
 		return err
 	}
 
-	mysocketAPI := api.NewAPI(accessToken)
-	connectorCore := core.NewConnectorCore(c.cfg, &discover.StaticSocketFinder{}, mysocketAPI)
-
-	socketUpdateCh := make(chan []models.Socket)
 	sigchnl := make(chan os.Signal, 1)
 	signal.Notify(sigchnl, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
-
-	c.StartSocketWorker(ctx, connectorCore, socketUpdateCh, g)
-	c.StartDiscovery(ctx, connectorCore, socketUpdateCh, g)
 
 	go func() {
 		for {
@@ -81,6 +76,44 @@ func (c *ConnectorService) Start() error {
 			c.multiSignalHandler(s, cancel)
 		}
 	}()
+
+	var plugins []discover.Discover
+	sess, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+		Profile:           c.cfg.Connector.AwsProfile,
+		Config: aws.Config{
+			Region: &c.cfg.Connector.AwsRegion,
+		},
+	})
+
+	if err != nil {
+		fmt.Println("Error creating aws session:", err)
+	}
+
+	if sess != nil {
+		ec2Discover := discover.NewEC2Discover(ec2.New(sess), c.cfg)
+		plugins = append(plugins, ec2Discover)
+	}
+
+	// always load the static socket plugin
+	plugins = append(plugins, &discover.StaticSocketFinder{})
+	c.StartWithPlugins(ctx, c.cfg, accessToken, plugins)
+
+	return nil
+}
+
+func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Config, accessToken string, plugins []discover.Discover) error {
+	g, ctx := errgroup.WithContext(ctx)
+	mysocketAPI := api.NewAPI(accessToken)
+
+	for _, discoverPlugin := range plugins {
+		connectorCore := core.NewConnectorCore(c.cfg, discoverPlugin, mysocketAPI)
+
+		socketUpdateCh := make(chan []models.Socket)
+
+		c.StartSocketWorker(ctx, connectorCore, socketUpdateCh, g)
+		c.StartDiscovery(ctx, connectorCore, socketUpdateCh, g)
+	}
 
 	if err := g.Wait(); err != nil {
 		log.Printf("Program terminated: %v", err)

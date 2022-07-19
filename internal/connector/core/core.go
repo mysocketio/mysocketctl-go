@@ -235,7 +235,7 @@ func (c *ConnectorCore) CheckSocketsToDelete(ctx context.Context, socketsFromApi
 					return err
 				}
 			}
-		} else {
+		} else if apiSocket.ConnectorData.Name == c.cfg.Connector.Name {
 			log.Printf("socket does not exists locally, deleting the socket %s", apiSocket.Name)
 			err := c.mysocketAPI.DeleteSocket(ctx, apiSocket.SocketID)
 			if err != nil {
@@ -278,6 +278,10 @@ func (c *ConnectorCore) CreateSocketAndTunnel(ctx context.Context, s *models.Soc
 	privateSocket := s.PrivateSocket
 	if s.PrivateSocket {
 		s.PrivateSocket = false
+	}
+
+	if s.Description == "" {
+		s.Description = fmt.Sprintf("created by %s", c.cfg.Connector.Name)
 	}
 
 	createdSocket, err := c.mysocketAPI.CreateSocket(ctx, s)

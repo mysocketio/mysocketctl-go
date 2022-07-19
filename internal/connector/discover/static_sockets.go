@@ -2,7 +2,6 @@ package discover
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -39,10 +38,6 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 
 			if v.UpstreamType == "" {
 				v.UpstreamType = "http"
-			}
-
-			if socket.Description == "" {
-				socket.Description = fmt.Sprintf("created by %s", cfg.Connector.Name)
 			}
 
 			if socket.PrivateSocket {

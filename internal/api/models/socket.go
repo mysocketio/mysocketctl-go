@@ -11,16 +11,24 @@ type ConnectorData struct {
 	Type           string
 	Port           int
 	TargetHostname string
+	PolicyGroup    string
+	Ec2Tag         string
+	InstanceId     string
 }
 
 func (c *ConnectorData) Tags() map[string]string {
-	return map[string]string{
+	data := map[string]string{
 		"name":            c.Name,
 		"connector_name":  c.Connector,
 		"type":            c.Type,
 		"target_port":     strconv.Itoa(c.Port),
 		"target_hostname": c.TargetHostname,
+		"ec2_tag":         c.Ec2Tag,
+		"policy_group":    c.PolicyGroup,
+		"instance_id":     c.InstanceId,
 	}
+
+	return data
 }
 
 func (c *ConnectorData) Key() string {
@@ -57,6 +65,9 @@ type Socket struct {
 
 	TargetHostname string         `json:"-"`
 	TargetPort     int            `json:"-"`
+	PolicyGroup    string         `json:"-"`
+	Ec2Tag         string         `json:"-"`
+	InstanceId     string         `json:"-"`
 	ConnectorData  *ConnectorData `json:"-"`
 }
 
@@ -67,6 +78,9 @@ func (s *Socket) BuildConnectorData(connectorName string) {
 		Type:           s.SocketType,
 		Port:           s.TargetPort,
 		TargetHostname: s.TargetHostname,
+		PolicyGroup:    s.PolicyGroup,
+		Ec2Tag:         s.Ec2Tag,
+		InstanceId:     s.InstanceId,
 	}
 }
 
@@ -89,6 +103,9 @@ func (s *Socket) BuildConnectorDataByTags() {
 	data.Type = s.Tags["type"]
 	data.Port = port
 	data.TargetHostname = s.Tags["target_hostname"]
+	data.Ec2Tag = s.Tags["ec2_tag"]
+	data.InstanceId = s.Tags["instance_id"]
+	data.PolicyGroup = s.Tags["policy_group"]
 
 	s.ConnectorData = &data
 }

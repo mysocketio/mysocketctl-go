@@ -16,6 +16,7 @@ require (
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.10 // indirect
+	github.com/mitchellh/mapstructure v1.3.3
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
 	github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0
 	github.com/satori/go.uuid v1.2.0

@@ -35,6 +35,13 @@ type Credentials struct {
 	Token    string
 }
 
+type AwsGroups struct {
+	Group                 string
+	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
+	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
+	PrivateSocket         bool     `mapstructure:"private_socket"`
+}
+
 type Connector struct {
 	Name         string
 	AwsRegion    string `mapstructure:"aws-region"`
@@ -48,6 +55,7 @@ type Config struct {
 	Credentials Credentials
 	Sockets     SocketParams
 	Connector   Connector
+	AwsGroups   []AwsGroups `mapstructure:"aws_groups"`
 }
 
 func NewConfig() *Config {

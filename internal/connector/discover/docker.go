@@ -2,7 +2,7 @@ package discover
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -14,13 +14,6 @@ import (
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
 )
 
-type ContainerGroup struct {
-	Group                 string
-	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
-	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
-	PrivateSocket         bool     `mapstructure:"private_socket"`
-}
-
 type SocketData struct {
 	Port  string `mapstructure:"port"`
 	Type  string
@@ -31,41 +24,44 @@ type SocketData struct {
 type DockerFinder struct{}
 
 func (s *DockerFinder) SkipRun(ctx context.Context, cfg config.Config, state DiscoverState) bool {
-	return state.RunsCount > 1 || state.RunsCount == 1
+	return false
 }
 
 func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) []models.Socket {
-	sockets := []*models.Socket{}
+	sockets := []models.Socket{}
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		panic(err)
+		log.Println("Error creating docker client:", err)
+		return sockets
 	}
 
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
 
 	if err != nil {
-		panic(err)
+		log.Println("Error getting containers:", err)
+		return sockets
 	}
 
-	for _, container := range containers {
-		labels := container.Labels
-		var instanceName string
-		for k, v := range labels {
-			if k == "Name" {
-				instanceName = v
-			}
+	for _, group := range cfg.DockerPlugin {
+		for _, container := range containers {
+			labels := container.Labels
+			var instanceName string
+			for k, v := range labels {
+				if k == "Name" {
+					instanceName = v
+				}
+				if strings.HasPrefix(strings.ToLower(k), "mysocket") {
+					mySocketMetadata := s.parseLabels(v)
+					if mySocketMetadata.Group != "" && group.Group == mySocketMetadata.Group {
+						ip := s.extractIPAddress(container.NetworkSettings.Networks)
+						port := s.extractPort(container.Ports)
 
-			if strings.HasPrefix(strings.ToLower(k), "mysocket") {
-				mySocketMetadata := s.parseLabels(v)
-				if mySocketMetadata.Group != "" && mySocketMetadata.Group == v {
-					ip := s.extractIPAddress(container.NetworkSettings.Networks)
-					port := s.extractPort(container.Ports)
+						if port == 0 {
+							continue
+						}
 
-					if port == 0 {
-						continue
+						sockets = append(sockets, s.buildSocket(cfg.Connector.Name, group, mySocketMetadata, container, instanceName, ip, port))
 					}
-
-					sockets = append(sockets, s.buildSocket(cfg.Connector.Name, mySocketMetadata, mySocketMetadata, container, container.Names[], ip, port))
 				}
 			}
 		}
@@ -75,9 +71,9 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 	return sockets
 }
 
-func (s *DockerFinder) buildSocket(connectorName string, group ContainerGroup, socketData SocketData, instance types.Container, instanceName, ipAddress string, port int) models.Socket {
+func (s *DockerFinder) buildSocket(connectorName string, group config.ConnectorGroups, socketData SocketData, instance types.Container, instanceName, ipAddress string, port uint16) models.Socket {
 	socket := models.Socket{}
-	socket.TargetPort = port
+	socket.TargetPort = int(port)
 	socket.PolicyGroup = group.Group
 	socket.InstanceId = instance.ID
 
@@ -121,7 +117,7 @@ func (s *DockerFinder) parseLabels(label string) SocketData {
 func (s *DockerFinder) extractPort(ports []types.Port) uint16 {
 
 	for _, p := range ports {
-		if p.Type != "tcp" {
+		if p.Type == "tcp" {
 			return p.PublicPort
 		}
 	}

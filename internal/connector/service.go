@@ -78,26 +78,33 @@ func (c *ConnectorService) Start() error {
 	}()
 
 	var plugins []discover.Discover
-	sess, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-		Profile:           c.cfg.Connector.AwsProfile,
-		Config: aws.Config{
-			Region: &c.cfg.Connector.AwsRegion,
-		},
-	})
 
-	if err != nil {
-		fmt.Println("Error creating aws session:", err)
+	if len(c.cfg.AwsGroups) > 0 {
+		sess, err := session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+			Profile:           c.cfg.Connector.AwsProfile,
+			Config: aws.Config{
+				Region: &c.cfg.Connector.AwsRegion,
+			},
+		})
+
+		if err != nil {
+			fmt.Println("Error creating aws session:", err)
+		}
+
+		if sess != nil {
+			ec2Discover := discover.NewEC2Discover(ec2.New(sess), c.cfg)
+			plugins = append(plugins, ec2Discover)
+		}
 	}
 
-	if sess != nil {
-		ec2Discover := discover.NewEC2Discover(ec2.New(sess), c.cfg)
-		plugins = append(plugins, ec2Discover)
+	if len(c.cfg.DockerPlugin) > 0 {
+		plugins = append(plugins, &discover.DockerFinder{})
 	}
 
 	// always load the static socket plugin
 	plugins = append(plugins, &discover.StaticSocketFinder{})
-	plugins = append(plugins, &discover.DockerFinder{})
+
 	c.StartWithPlugins(ctx, c.cfg, accessToken, plugins)
 
 	return nil

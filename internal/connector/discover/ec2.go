@@ -81,7 +81,7 @@ func (s *Ec2Discover) Find(ctx context.Context, cfg config.Config, state Discove
 	return sockets
 }
 
-func (s *Ec2Discover) buildSocket(connectorName string, group config.AwsGroups, socketData Ec2SocketData, instance ec2.Instance, instanceName string) *models.Socket {
+func (s *Ec2Discover) buildSocket(connectorName string, group config.ConnectorGroups, socketData Ec2SocketData, instance ec2.Instance, instanceName string) *models.Socket {
 	socket := models.Socket{}
 	socket.TargetPort, _ = strconv.Atoi(socketData.Port)
 	socket.PolicyGroup = group.Group

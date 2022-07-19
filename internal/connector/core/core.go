@@ -74,11 +74,6 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 	socket = *socketFromApi
 	socket.BuildConnectorDataByTags()
 
-	var localssh bool
-	if socket.SocketType == "ssh" {
-		localssh = true
-	}
-
 	if len(socket.Tunnels) == 0 {
 		log.Println("tunnel is empty, cannot connect to a tunnel")
 		return err
@@ -89,7 +84,7 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 	c.connectedSockets[socket.ConnectorData.Key()] = socket
 	c.lock.Unlock()
 
-	err = ssh.SshConnect(*userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", localssh, org.Certificates["ssh_public_key"], c.mysocketAPI.AccessToken)
+	err = ssh.SshConnect(*userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", false, org.Certificates["ssh_public_key"], c.mysocketAPI.AccessToken)
 	if err != nil {
 		c.lock.Lock()
 		delete(c.connectedSockets, socket.ConnectorData.Key())

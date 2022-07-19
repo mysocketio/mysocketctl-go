@@ -97,6 +97,7 @@ func (c *ConnectorService) Start() error {
 
 	// always load the static socket plugin
 	plugins = append(plugins, &discover.StaticSocketFinder{})
+	plugins = append(plugins, &discover.DockerFinder{})
 	c.StartWithPlugins(ctx, c.cfg, accessToken, plugins)
 
 	return nil

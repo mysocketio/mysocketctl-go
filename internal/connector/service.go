@@ -95,6 +95,13 @@ func (c *ConnectorService) Start() error {
 		plugins = append(plugins, ec2Discover)
 	}
 
+	if c.cfg.K8Plugin != nil {
+		k8Discover := discover.NewK8Discover(c.cfg)
+		if k8Discover != nil {
+			plugins = append(plugins, k8Discover)
+		}
+	}
+
 	// always load the static socket plugin
 	plugins = append(plugins, &discover.StaticSocketFinder{})
 	c.StartWithPlugins(ctx, c.cfg, accessToken, plugins)

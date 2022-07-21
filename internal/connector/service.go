@@ -96,7 +96,7 @@ func (c *ConnectorService) Start() error {
 	}
 
 	if c.cfg.K8Plugin != nil {
-		k8Discover := discover.NewK8Discover(c.cfg)
+		k8Discover := discover.NewK8Discover()
 		if k8Discover != nil {
 			plugins = append(plugins, k8Discover)
 		}

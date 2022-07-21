@@ -18,7 +18,7 @@ type K8Discover struct {
 	clusterConfig *rest.Config
 }
 
-func NewK8Discover(cfg config.Config) *K8Discover {
+func NewK8Discover() *K8Discover {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		fmt.Println("error creating cluster config:", err)

@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
+	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/creack/pty v1.1.11
 	github.com/fatih/color v1.7.0
 	github.com/gliderlabs/ssh v0.3.3

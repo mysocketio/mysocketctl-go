@@ -26,6 +26,7 @@ import (
 
 	"os"
 
+	"github.com/cenkalti/backoff/v4"
 	jwt "github.com/golang-jwt/jwt"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/skratchdot/open-golang/open"
@@ -57,12 +58,13 @@ var loginCmd = &cobra.Command{
 			}
 
 			sessionJWT, _ := jwt.Parse(sessionToken, nil)
-
-			var deviceIdentifier string
-			if sessionJWT != nil {
-				claims := sessionJWT.Claims.(jwt.MapClaims)
-				deviceIdentifier = fmt.Sprint(claims["identifier"])
+			if sessionJWT == nil {
+				log.Fatalf("We couldn't log you in, your session is expired or you are not authorized to perform this action")
+				return
 			}
+
+			claims := sessionJWT.Claims.(jwt.MapClaims)
+			deviceIdentifier := fmt.Sprint(claims["identifier"])
 
 			url := fmt.Sprintf("%s/login?device_identifier=%v", http.WebUrl(), url.QueryEscape(deviceIdentifier))
 			fmt.Println(`please login with the link below:`)
@@ -73,7 +75,16 @@ var loginCmd = &cobra.Command{
 			}
 
 			for {
-				token, err := http.GetDeviceAuthorization(sessionToken)
+				retriesThreeTimesEveryTwoSeconds := backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 3)
+
+				var token *http.SessionTokenForm
+				var err error
+
+				err = backoff.Retry(func() error {
+					token, err = http.GetDeviceAuthorization(sessionToken)
+					return err
+				}, retriesThreeTimesEveryTwoSeconds)
+
 				if err != nil {
 					if errors.Is(err, http.ErrUnauthorized) {
 						log.Fatalf("We couldn't log you in, your session is expired or you are not authorized to perform this action: %v", err)
@@ -82,7 +93,7 @@ var loginCmd = &cobra.Command{
 					log.Fatalf("We couldn't log you in, make sure that you are properly logged in using the link above: %v", err)
 				}
 
-				if token.Token != "" && token.State != "not_authorized" {
+				if token != nil && token.Token != "" && token.State != "not_authorized" {
 					fmt.Println("Login successful")
 					http.SaveTokenInDisk(token.Token)
 					return

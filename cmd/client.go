@@ -26,7 +26,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/txn2/txeh"
@@ -113,10 +112,6 @@ var clientTlsCmd = &cobra.Command{
 		}
 
 		config := tls.Config{Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true, ServerName: hostname}
-		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
-		if err != nil {
-			log.Fatalf("failed to connect: %v", err.Error())
-		}
 
 		if listener > 0 {
 			l, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", listener))
@@ -124,23 +119,32 @@ var clientTlsCmd = &cobra.Command{
 				log.Fatalln("Error: Unable to start local TLS listener.")
 			}
 
-			var wg sync.WaitGroup
-			wg.Add(1)
+			log.Print("Waiting for connections...")
 
-			go func() {
-				defer wg.Done()
-				log.Print("Waiting for connection...")
+			for {
 				lcon, err := l.Accept()
 				if err != nil {
 					log.Fatalf("Listener: Accept Error: %s\n", err)
 				}
-				log.Print("Connection established")
-				defer lcon.Close()
-				tcp_con_handle(conn, lcon, lcon)
-			}()
 
-			wg.Wait()
+				go func() {
+					conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
+					if err != nil {
+						log.Printf("failed to connect: %v", err.Error())
+						return
+					}
+
+					log.Print("Connection established from ", lcon.RemoteAddr())
+					tcp_con_handle(conn, lcon, lcon)
+				}()
+			}
+
 		} else {
+			conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", hostname, port), &config)
+			if err != nil {
+				log.Fatalf("failed to connect: %v", err.Error())
+			}
+
 			tcp_con_handle(conn, os.Stdin, os.Stdout)
 		}
 

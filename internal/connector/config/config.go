@@ -36,7 +36,7 @@ type Credentials struct {
 	Token    string
 }
 
-type AwsGroups struct {
+type ConnectorGroups struct {
 	Group                 string
 	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
@@ -61,11 +61,12 @@ type Connector struct {
 type SocketParams []map[string]SocketConfig
 
 type Config struct {
-	Credentials Credentials
-	Sockets     SocketParams
-	Connector   Connector
-	AwsGroups   []AwsGroups `mapstructure:"aws_groups"`
-	K8Plugin    []K8Plugin  `mapstructure:"k8_plugin"`
+	Credentials  Credentials
+	Sockets      SocketParams
+	Connector    Connector
+	AwsGroups    []ConnectorGroups `mapstructure:"aws_groups"`
+	DockerPlugin []ConnectorGroups `mapstructure:"docker_plugin"`
+	K8Plugin     []K8Plugin        `mapstructure:"k8_plugin"`
 }
 
 func NewConfig() *Config {

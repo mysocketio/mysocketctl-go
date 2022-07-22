@@ -70,6 +70,10 @@ func (c *ConnectorService) Start() error {
 		}
 	}
 
+	if len(c.cfg.DockerPlugin) > 0 {
+		plugins = append(plugins, &discover.DockerFinder{})
+	}
+
 	if c.cfg.K8Plugin != nil {
 		k8Discover := discover.NewK8Discover()
 		if k8Discover != nil {
@@ -79,6 +83,7 @@ func (c *ConnectorService) Start() error {
 
 	// always load the static socket plugin
 	plugins = append(plugins, &discover.StaticSocketFinder{})
+
 	c.StartWithPlugins(ctx, c.cfg, accessToken, plugins)
 
 	return nil

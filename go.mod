@@ -5,9 +5,14 @@ go 1.15
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
+	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/aws/aws-sdk-go v1.44.54
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/creack/pty v1.1.11
+	github.com/docker/distribution v2.8.1+incompatible // indirect
+	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.7.0
 	github.com/gliderlabs/ssh v0.3.3
 	github.com/go-openapi/strfmt v0.21.2 // indirect
@@ -19,6 +24,9 @@ require (
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
+	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966

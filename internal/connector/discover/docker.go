@@ -3,6 +3,7 @@ package discover
 import (
 	"context"
 	"log"
+	"reflect"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 			}
 		}
 	}
-	time.Sleep(3 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	return sockets
 }
@@ -137,4 +138,8 @@ func (s *DockerFinder) extractIPAddress(networkSettings map[string]*network.Endp
 	}
 
 	return ""
+}
+
+func (s *DockerFinder) Name() string {
+	return reflect.TypeOf(s).Elem().Name()
 }

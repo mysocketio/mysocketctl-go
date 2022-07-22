@@ -14,6 +14,7 @@ type ConnectorData struct {
 	PolicyGroup    string
 	Ec2Tag         string
 	InstanceId     string
+	PluginName     string
 }
 
 func (c *ConnectorData) Tags() map[string]string {
@@ -26,6 +27,7 @@ func (c *ConnectorData) Tags() map[string]string {
 		"ec2_tag":         c.Ec2Tag,
 		"policy_group":    c.PolicyGroup,
 		"instance_id":     c.InstanceId,
+		"plugin_name":     c.PluginName,
 	}
 
 	return data
@@ -36,7 +38,7 @@ func (c *ConnectorData) Key() string {
 		return ""
 	}
 
-	return fmt.Sprintf("%v;%v", c.Name, c.Connector)
+	return fmt.Sprintf("%v;%v;%v", c.Name, c.Connector, c.PluginName)
 }
 
 type Socket struct {
@@ -68,6 +70,7 @@ type Socket struct {
 	PolicyGroup    string         `json:"-"`
 	Ec2Tag         string         `json:"-"`
 	InstanceId     string         `json:"-"`
+	PluginName     string         `json:"-"`
 	ConnectorData  *ConnectorData `json:"-"`
 }
 
@@ -81,6 +84,7 @@ func (s *Socket) BuildConnectorData(connectorName string) {
 		PolicyGroup:    s.PolicyGroup,
 		Ec2Tag:         s.Ec2Tag,
 		InstanceId:     s.InstanceId,
+		PluginName:     s.PluginName,
 	}
 }
 
@@ -106,8 +110,30 @@ func (s *Socket) BuildConnectorDataByTags() {
 	data.Ec2Tag = s.Tags["ec2_tag"]
 	data.InstanceId = s.Tags["instance_id"]
 	data.PolicyGroup = s.Tags["policy_group"]
+	data.PluginName = s.Tags["plugin_name"]
 
 	s.ConnectorData = &data
+}
+
+func (s *Socket) SetupTypeAndUpstreamTypeByPort() {
+	if s.UpstreamType == "" {
+		s.UpstreamType = "http"
+
+		if s.TargetPort == 3306 {
+			s.SocketType = "database"
+			s.UpstreamType = "mysql"
+		}
+		if s.TargetPort == 22 {
+			s.SocketType = "ssh"
+		}
+		if s.TargetPort == 80 {
+			s.SocketType = "http"
+		}
+		if s.TargetPort == 443 {
+			s.SocketType = "http"
+			s.UpstreamType = "https"
+		}
+	}
 }
 
 type Tunnel struct {

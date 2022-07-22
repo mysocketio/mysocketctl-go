@@ -13,12 +13,14 @@ import (
 	"github.com/mysocketio/mysocketctl-go/internal/connector/discover"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/mysocketio/mysocketctl-go/internal/ssh"
+	"go.uber.org/zap"
 )
 
 type ConnectorCore struct {
 	discovery   discover.Discover
 	cfg         config.Config
 	mysocketAPI *api.API
+	logger      *zap.Logger
 
 	numberOfRuns     int64
 	connectedSockets map[string]models.Socket
@@ -26,14 +28,14 @@ type ConnectorCore struct {
 	lock             sync.RWMutex
 }
 
-func NewConnectorCore(cfg config.Config, discovery discover.Discover, mysocketAPI *api.API) *ConnectorCore {
+func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.Discover, mysocketAPI *api.API) *ConnectorCore {
 	connectedSockets := make(map[string]models.Socket)
 	discoverState := discover.DiscoverState{
 		State:     make(map[string]interface{}),
 		RunsCount: 0,
 	}
 
-	return &ConnectorCore{discovery: discovery, cfg: cfg, mysocketAPI: mysocketAPI, connectedSockets: connectedSockets, discoverState: discoverState}
+	return &ConnectorCore{logger: logger, discovery: discovery, cfg: cfg, mysocketAPI: mysocketAPI, connectedSockets: connectedSockets, discoverState: discoverState}
 }
 
 func (c *ConnectorCore) IsSocketConnected(key string) bool {
@@ -101,14 +103,17 @@ func (c *ConnectorCore) DiscoverNewSocketChanges(ctx context.Context, ch chan []
 }
 
 func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate []models.Socket) ([]models.Socket, error) {
+	logger := c.logger.With(zap.String("plugin_name", c.discovery.Name()))
 	var socketsToConnect []models.Socket
 
 	discoveredSockets := socketsToUpdate
 
 	localSocketsMap := make(map[string]models.Socket)
 	for i, socket := range discoveredSockets {
+		socket.PluginName = c.discovery.Name()
 		socket.BuildConnectorData(c.cfg.Connector.Name)
 		socket.Tags = socket.ConnectorData.Tags()
+		socket.SetupTypeAndUpstreamTypeByPort()
 		localSocketsMap[socket.ConnectorData.Key()] = socket
 
 		// update socket in the list
@@ -132,10 +137,10 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 		socketsFromApi[i] = socket
 	}
 
-	log.Printf("------------------------------------------------------")
-	log.Printf("statics sockets found %v\n", len(localSocketsMap))
-	log.Printf("api sockets found %v\n", len(socketsFromApi))
-	log.Println("sockets connected: ", len(c.connectedSockets))
+	logger.Info("sockets found %v",
+		zap.Int("connector sockets", len(localSocketsMap)),
+		zap.Int("api sockets", len(socketsFromApi)),
+		zap.Int("connected sockets", len(c.connectedSockets)))
 
 	if err := c.CheckSocketsToDelete(ctx, socketsFromApi, localSocketsMap); err != nil {
 		return nil, err
@@ -143,11 +148,11 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 
 	socketsToConnect, errC := c.CheckSocketsToCreate(ctx, discoveredSockets, socketApiMap)
 	if errC != nil {
-		log.Println(errC)
+		logger.Error("error checking sockets to create", zap.Error(errC))
 		return nil, errC
 	}
 
-	log.Println("number of sockets to connect: ", len(socketsToConnect))
+	logger.Info("number of sockets to connect: ", zap.Int("sockets to connect", len(socketsToConnect)))
 	return socketsToConnect, nil
 }
 
@@ -206,7 +211,11 @@ func (c *ConnectorCore) CheckSocketsToDelete(ctx context.Context, socketsFromApi
 		if s, ok := localSocketsMap[apiSocket.ConnectorData.Key()]; ok {
 			// check if socket needs to be recreated
 			if *s.ConnectorData != *apiSocket.ConnectorData {
-				log.Println("socket data is different, so we are recreating the socket")
+				c.logger.Info("socket data is different, so we are recreating the socket",
+					zap.String("plugin_name", c.discovery.Name()),
+					zap.Any("local connector data", apiSocket.ConnectorData),
+					zap.Any("connector data", s.ConnectorData),
+				)
 
 				createdSocket, err := c.RecreateSocket(ctx, apiSocket.SocketID, s)
 				if err != nil {
@@ -214,8 +223,11 @@ func (c *ConnectorCore) CheckSocketsToDelete(ctx context.Context, socketsFromApi
 				}
 				localSocketsMap[apiSocket.ConnectorData.Key()] = *createdSocket
 			}
-		} else if apiSocket.ConnectorData.Connector == c.cfg.Connector.Name {
-			log.Printf("socket does not exists locally, deleting the socket %s", apiSocket.Name)
+		} else if apiSocket.ConnectorData.Connector == c.cfg.Connector.Name && apiSocket.ConnectorData.PluginName == c.discovery.Name() {
+			c.logger.Info("socket does not exists locally, deleting the socket ",
+				zap.String("plugin_name", c.discovery.Name()),
+				zap.String("name", apiSocket.Name),
+				zap.String("key", apiSocket.ConnectorData.Key()))
 			err := c.mysocketAPI.DeleteSocket(ctx, apiSocket.SocketID)
 			if err != nil {
 				return err
@@ -244,7 +256,7 @@ func (c *ConnectorCore) CheckSocketsToCreate(ctx context.Context, localSockets [
 		} else {
 			updatedSocket, err := c.CheckAndUpdateSocket(ctx, apiSocket, localSocket)
 			if err != nil {
-				log.Printf("error updating the socket: %v", err)
+				c.logger.Info("error updating the socket", zap.String("error", err.Error()))
 				return nil, err
 			}
 

@@ -34,6 +34,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/takama/daemon v1.0.0
 	github.com/txn2/txeh v1.3.0
+	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

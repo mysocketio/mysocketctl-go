@@ -3,6 +3,7 @@ package discover
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -117,4 +118,8 @@ func (s *K8Discover) buildSocket(connectorName string, group config.K8Plugin, se
 	}
 
 	return &socket
+}
+
+func (s *K8Discover) Name() string {
+	return reflect.TypeOf(s).Elem().Name()
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -17,18 +16,17 @@ import (
 	"github.com/mysocketio/mysocketctl-go/internal/connector/core"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/discover"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 type ConnectorService struct {
-	cfg config.Config
+	cfg    config.Config
+	logger *zap.Logger
 }
 
-func NewConnectorService(cfg config.Config) *ConnectorService {
-	return &ConnectorService{cfg}
-}
-func (c *ConnectorService) multiSignalHandler(signal os.Signal, cancel context.CancelFunc) {
-
+func NewConnectorService(cfg config.Config, logger *zap.Logger) *ConnectorService {
+	return &ConnectorService{cfg, logger}
 }
 
 func (c *ConnectorService) Start() error {
@@ -97,16 +95,16 @@ func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Conf
 	mysocketAPI := api.NewAPI(accessToken)
 
 	for _, discoverPlugin := range plugins {
-		connectorCore := core.NewConnectorCore(c.cfg, discoverPlugin, mysocketAPI)
+		connectorCore := core.NewConnectorCore(c.logger, c.cfg, discoverPlugin, mysocketAPI)
 
-		socketUpdateCh := make(chan []models.Socket)
+		socketUpdateCh := make(chan []models.Socket, 1)
 
 		c.StartSocketWorker(groupCtx, connectorCore, socketUpdateCh, g)
 		c.StartDiscovery(groupCtx, connectorCore, socketUpdateCh, g)
 	}
 
 	if err := g.Wait(); err != nil {
-		log.Printf("Program terminated: %v", err)
+		c.logger.Info("Program terminated", zap.Error(err))
 	}
 
 	return nil
@@ -122,7 +120,7 @@ func (c *ConnectorService) StartSocketWorker(ctx context.Context, connectorCore 
 		for {
 			select {
 			case sToUpdate := <-socketUpdateCh:
-				log.Println("receiving sockets to update")
+				c.logger.Info("receiving an update")
 				sockets, err := connectorCore.SocketsCoreHandler(ctx, sToUpdate)
 				if err != nil {
 					log.Printf("failed to check new sockets: %v", err)
@@ -131,11 +129,11 @@ func (c *ConnectorService) StartSocketWorker(ctx context.Context, connectorCore 
 
 				for _, socket := range sockets {
 					if !connectorCore.IsSocketConnected(socket.ConnectorData.Key()) {
-						log.Println("found new socket to connect")
+						c.logger.Info("found new socket to connect")
 
 						go func(ctx context.Context, socket models.Socket) {
 							if err := connectorCore.TunnelConnnect(ctx, socket); err != nil {
-								log.Printf("error connecting to socket: %v", err)
+								c.logger.Error("error connecting to socket", zap.String("error", err.Error()))
 							}
 						}(ctx, socket)
 					}

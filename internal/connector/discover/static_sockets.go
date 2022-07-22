@@ -2,6 +2,7 @@ package discover
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -37,10 +38,6 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 			socket.PrivateSocket = v.PrivateSocket
 			socket.UpstreamHttpHostname = v.UpstreamHttpHostname
 
-			if v.UpstreamType == "" {
-				v.UpstreamType = "http"
-			}
-
 			if socket.PrivateSocket {
 				socket.Dnsname = socket.Name
 			}
@@ -53,4 +50,8 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 
 	time.Sleep(5 * time.Second)
 	return sockets
+}
+
+func (s *StaticSocketFinder) Name() string {
+	return reflect.TypeOf(s).Elem().Name()
 }

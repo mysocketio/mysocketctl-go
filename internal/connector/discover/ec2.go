@@ -3,6 +3,7 @@ package discover
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -106,6 +107,10 @@ func (s *Ec2Discover) buildSocket(connectorName string, group config.ConnectorGr
 		socket.Dnsname = socket.Name
 	}
 	return &socket
+}
+
+func (s *Ec2Discover) Name() string {
+	return reflect.TypeOf(s).Elem().Name()
 }
 
 func buildSocketName(instanceName, connectorName, socketType string) string {

@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/mysocketio/mysocketctl-go/internal/connector"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // connectorCmd represents the connector service
@@ -20,13 +20,16 @@ var connectorStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "start the connector",
 	Run: func(cmd *cobra.Command, args []string) {
+		log, _ := zap.NewDevelopment()
+		defer log.Sync()
+
 		var configPath string
 		if connectorConfig != "" {
 			configPath = connectorConfig
 		} else {
 			home, err := os.UserHomeDir()
 			if err != nil {
-				log.Fatalf("failed to get home dir : %v", err)
+				log.Fatal("failed to get home dir", zap.String("error", err.Error()))
 			}
 
 			configPath = filepath.Join(home, ".mysocketio_connector_config")
@@ -34,24 +37,24 @@ var connectorStartCmd = &cobra.Command{
 
 		parser := config.NewConfigParser()
 
-		log.Printf("reading the config %v", configPath)
+		log.Info("reading the config", zap.String("config_path", configPath))
 		cfg, err := parser.Parse(configPath)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("failed to parse config", zap.String("error", err.Error()))
 		}
 
 		svc, err := config.StartSSMSession(cfg)
 		if err != nil {
-			log.Printf("failed to start ssm session : %v\n", err)
+			log.Error("failed to start ssm session", zap.String("error", err.Error()))
 		}
 
 		if svc != nil {
 			if err := parser.LoadSSMInConfig(svc, cfg); err != nil {
-				log.Printf("failed to load ssm config : %v\n", err)
+				log.Error("failed to load ssm config", zap.String("error", err.Error()))
 			}
 		}
 
-		connector.NewConnectorService(*cfg).Start()
+		connector.NewConnectorService(*cfg, log).Start()
 	},
 }
 
@@ -59,7 +62,7 @@ var connectorStopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "stop the connector",
 	Run: func(cmd *cobra.Command, args []string) {
-		connector.NewConnectorService(*config.NewConfig()).Stop()
+		connector.NewConnectorService(*config.NewConfig(), nil).Stop()
 	},
 }
 

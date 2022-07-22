@@ -43,6 +43,14 @@ type AwsGroups struct {
 	PrivateSocket         bool     `mapstructure:"private_socket"`
 }
 
+type K8Plugin struct {
+	Group                 string
+	Namespace             string
+	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
+	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
+	PrivateSocket         bool     `mapstructure:"private_socket"`
+}
+
 type Connector struct {
 	Name         string
 	AwsRegion    string `mapstructure:"aws-region"`
@@ -57,6 +65,7 @@ type Config struct {
 	Sockets     SocketParams
 	Connector   Connector
 	AwsGroups   []AwsGroups `mapstructure:"aws_groups"`
+	K8Plugin    []K8Plugin  `mapstructure:"k8_plugin"`
 }
 
 func NewConfig() *Config {

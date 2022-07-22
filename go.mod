@@ -6,6 +6,7 @@ require (
 	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/aws/aws-sdk-go v1.44.54
+	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/creack/pty v1.1.11
 	github.com/fatih/color v1.7.0
 	github.com/gliderlabs/ssh v0.3.3
@@ -25,9 +26,12 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/takama/daemon v1.0.0
 	github.com/txn2/txeh v1.3.0
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
+	k8s.io/api v0.24.3
+	k8s.io/apimachinery v0.24.3
+	k8s.io/client-go v0.24.3
 )

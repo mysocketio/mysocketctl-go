@@ -26,6 +26,7 @@ type ConnectorCore struct {
 	connectedSockets map[string]models.Socket
 	discoverState    discover.DiscoverState
 	lock             sync.RWMutex
+	coreLock         sync.RWMutex
 }
 
 func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.Discover, mysocketAPI *api.API) *ConnectorCore {
@@ -39,7 +40,9 @@ func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.
 }
 
 func (c *ConnectorCore) IsSocketConnected(key string) bool {
+	c.coreLock.Lock()
 	_, ok := c.connectedSockets[key]
+	c.coreLock.Unlock()
 	return ok
 }
 

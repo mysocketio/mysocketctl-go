@@ -229,7 +229,7 @@ func CreateDeviceAuthorization() (string, error) {
 
 	if resp.StatusCode == 429 {
 		responseData, _ := ioutil.ReadAll(resp.Body)
-		return "", fmt.Errorf("unaouthorized %v", string(responseData))
+		return "", fmt.Errorf("unauthorized %v", string(responseData))
 	}
 
 	if resp.StatusCode != 200 {

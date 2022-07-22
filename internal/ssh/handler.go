@@ -3,6 +3,7 @@ package ssh
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,7 +35,8 @@ const (
 )
 
 var (
-	defaultKeyFiles = []string{"id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"}
+	defaultKeyFiles       = []string{"id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"}
+	ErrFailedToGetSshCert = errors.New("failed to get ssh cert")
 )
 
 type httpProxy struct {
@@ -53,20 +55,20 @@ func sshServer() string {
 	}
 }
 
-func getSshCert(userId string, socketID string, tunnelID string, accessToken string) (s ssh.Signer) {
+func getSshCert(userId string, socketID string, tunnelID string, accessToken string) (s ssh.Signer, err error) {
 
 	// First check if we already have a mysocket key pair
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf("Error: failed to get home dir: %v", err)
+		return s, fmt.Errorf("Error: failed to get home dir: %w", err)
 	}
 
 	privateKeyFile := home + "/.mysocket"
 	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
 		err := os.Mkdir(privateKeyFile, 0700)
 		if err != nil {
-			log.Fatalf("Error: could not create directory: %v", err)
+			return s, fmt.Errorf("Error: could not create directory: %w", err)
 		}
 	}
 
@@ -78,46 +80,46 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
-			log.Fatalf("Error: failed to create ssh key: %v", err)
+			return s, fmt.Errorf("Error: failed to create ssh key: %v", err)
 		}
 
 		parsed, err := x509.MarshalECPrivateKey(key)
 		if err != nil {
-			log.Fatalf("Error: failed to create ssh key: %v", err)
+			return s, fmt.Errorf("Error: failed to create ssh key: %v", err)
 		}
 
 		keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
 		err = ioutil.WriteFile(privateKeyFile, keyPem, 0600)
 		if err != nil {
-			log.Fatalf("Error: failed to write ssh key: %v", err)
+			return s, fmt.Errorf("Error: failed to write ssh key: %v", err)
 		}
 	}
 	// Ok now let's load the key
 
 	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
-		log.Fatalf("Error: failed to load private ssh key: %v", err)
+		return s, fmt.Errorf("Error: failed to load private ssh key: %v", err)
 	}
 	// read private key from file
 	keyContent, _ := ioutil.ReadFile(privateKeyFile)
 	if err != nil {
-		log.Fatalf("Error: failed to load private ssh key: %v", err)
+		return s, fmt.Errorf("Error: failed to load private ssh key: %v", err)
 	}
 
 	block, _ := pem.Decode(keyContent)
 	if block == nil {
-		log.Fatal("failed to decode PEM block containing public key")
+		return s, fmt.Errorf("failed to decode PEM block containing public key: %v", err)
 	}
 
 	//pkey, err := ssh.ParsePrivateKey(keyContent)
 	pkey, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
-		log.Fatal("Error: failed to parse private ssh key")
+		return s, fmt.Errorf("Error: failed to parse private ssh key: %v", err)
 	}
 
 	// create public key
 	pub, err := ssh.NewPublicKey(&pkey.PublicKey)
 	if err != nil {
-		log.Fatalf("Error: failed to create public ssh key: %v", err)
+		return s, fmt.Errorf("Error: failed to create public ssh key: %v", err)
 	}
 	data := ssh.MarshalAuthorizedKey(pub)
 
@@ -129,7 +131,7 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 	//log.Println(newCsr)
 	client, err := mysocketctlhttp.NewClientWithAccessToken(accessToken)
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+		return s, fmt.Errorf("Error: %v", err)
 	}
 	//err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
 
@@ -144,32 +146,32 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 		time.Sleep(d)
 	}
 	if signedCert.SSHSignedCert == "" {
-		log.Fatalf("Error: Unable to get signed key from Server")
+		return s, fmt.Errorf("Error: Unable to get signed key from Server")
 	}
 
 	certData := []byte(signedCert.SSHSignedCert)
 	pubcert, _, _, _, err := ssh.ParseAuthorizedKey(certData)
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+		return s, fmt.Errorf("Error: %v", err)
 	}
 	cert, ok := pubcert.(*ssh.Certificate)
 	if !ok {
-		log.Fatalf("Error failed to cast to certificate: %v", err)
+		return s, fmt.Errorf("Error failed to cast to certificate: %v", err)
 	}
 	//log.Println(cert.ValidPrincipals[0])
 	clientKey, _ := ssh.ParsePrivateKey(keyContent)
 	certSigner, err := ssh.NewCertSigner(cert, clientKey)
 	if err != nil {
-		log.Fatalf("NewCertSigner: %v", err)
+		return s, fmt.Errorf("NewCertSigner: %v", err)
 	}
-	return certSigner
+
+	return certSigner, nil
 }
 
 func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string, accessToken string) error {
 	tunnel, err := api.NewAPI(accessToken).GetTunnel(context.Background(), socketID, tunnelID)
-
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return fmt.Errorf("error getting tunnel: %v", err)
 	}
 
 	sshConfig := &ssh.ClientConfig{
@@ -237,14 +239,17 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		// We'll use that to authenticate. This returns a signer object.
 		// for now we'll just add it to the signers list.
 		// In future, this is the only auth method we should use.
-		sshCert := getSshCert(userID, socketID, tunnelID, accessToken)
+		sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken)
+		if err != nil {
+			return ErrFailedToGetSshCert
+		}
 		// If we got a cert, we use that for auth method. Otherwise use static keys
 		if sshCert != nil {
 			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(sshCert)}
 		} else if signers != nil {
 			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signers...)}
 		} else {
-			log.Fatal("No ssh keys found for authenticating..")
+			return errors.New("no ssh keys found for authenticating")
 		}
 
 		fmt.Println("\nConnecting to Server: " + sshServer() + "\n")

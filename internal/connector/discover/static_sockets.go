@@ -35,6 +35,7 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 			socket.TargetHostname = v.Host
 			socket.TargetPort = v.Port
 			socket.PrivateSocket = v.PrivateSocket
+			socket.UpstreamHttpHostname = v.UpstreamHttpHostname
 
 			if v.UpstreamType == "" {
 				v.UpstreamType = "http"
@@ -50,6 +51,6 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 		sockets = append(sockets, socket)
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 	return sockets
 }

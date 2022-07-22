@@ -27,6 +27,7 @@ type SocketConfig struct {
 	UpstreamType          string   `mapstructure:"upstream_type"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
 	DatabaseCredentials   string   `mapstructure:"database_credentials"`
+	UpstreamHttpHostname  string   `mapstructure:"upstream_http_hostname"`
 }
 
 type Credentials struct {
@@ -37,6 +38,14 @@ type Credentials struct {
 
 type ConnectorGroups struct {
 	Group                 string
+	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
+	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
+	PrivateSocket         bool     `mapstructure:"private_socket"`
+}
+
+type K8Plugin struct {
+	Group                 string
+	Namespace             string
 	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
@@ -57,6 +66,7 @@ type Config struct {
 	Connector    Connector
 	AwsGroups    []ConnectorGroups `mapstructure:"aws_groups"`
 	DockerPlugin []ConnectorGroups `mapstructure:"docker_plugin"`
+	K8Plugin     []K8Plugin        `mapstructure:"k8_plugin"`
 }
 
 func NewConfig() *Config {

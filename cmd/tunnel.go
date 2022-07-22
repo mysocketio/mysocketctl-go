@@ -183,7 +183,10 @@ var tunnelConnectCmd = &cobra.Command{
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
 
-		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"], "")
+		err = ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"], "")
+		if err != nil {
+			fmt.Println(err)
+		}
 	},
 }
 

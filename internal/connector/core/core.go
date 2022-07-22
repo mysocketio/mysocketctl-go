@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"reflect"
 	"sync"
 	"sync/atomic"
 
@@ -24,7 +23,6 @@ type ConnectorCore struct {
 	numberOfRuns     int64
 	connectedSockets map[string]models.Socket
 	discoverState    discover.DiscoverState
-	wg               sync.WaitGroup
 	lock             sync.RWMutex
 }
 
@@ -41,17 +39,6 @@ func NewConnectorCore(cfg config.Config, discovery discover.Discover, mysocketAP
 func (c *ConnectorCore) IsSocketConnected(key string) bool {
 	_, ok := c.connectedSockets[key]
 	return ok
-}
-
-func (c *ConnectorCore) Handler(ctx context.Context, sockets []models.Socket) error {
-	c.wg.Add(len(sockets))
-	for _, socket := range sockets {
-		go c.TunnelConnnect(ctx, socket)
-	}
-	c.wg.Wait()
-
-	log.Println("Terminating Program")
-	return nil
 }
 
 func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket) error {
@@ -89,10 +76,9 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 		c.lock.Lock()
 		delete(c.connectedSockets, socket.ConnectorData.Key())
 		c.lock.Unlock()
+		log.Println("error connecting to tunnel: ", err)
 		return err
 	}
-
-	log.Println("connected")
 
 	return nil
 }
@@ -137,7 +123,7 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 	socketApiMap := make(map[string]models.Socket)
 	for i, socket := range socketsFromApi {
 		socket.BuildConnectorDataByTags()
-
+		// filter api sockets by connector name
 		if socket.ConnectorData != nil && socket.ConnectorData.Key() != "" {
 			socketApiMap[socket.ConnectorData.Key()] = socket
 		}
@@ -146,8 +132,10 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 		socketsFromApi[i] = socket
 	}
 
+	log.Printf("------------------------------------------------------")
 	log.Printf("statics sockets found %v\n", len(localSocketsMap))
 	log.Printf("api sockets found %v\n", len(socketsFromApi))
+	log.Println("sockets connected: ", len(c.connectedSockets))
 
 	if err := c.CheckSocketsToDelete(ctx, socketsFromApi, localSocketsMap); err != nil {
 		return nil, err
@@ -164,15 +152,12 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 }
 
 func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, localSocket models.Socket) (*models.Socket, error) {
-	if len(apiSocket.AllowedEmailAddresses) > 0 && len(localSocket.AllowedEmailAddresses) > 0 && reflect.DeepEqual(apiSocket.AllowedEmailAddresses, localSocket.AllowedEmailAddresses) {
-		return &apiSocket, nil
-	}
+	check := stringSlicesEqual(apiSocket.AllowedEmailAddresses, localSocket.AllowedEmailAddresses) &&
+		stringSlicesEqual(localSocket.AllowedEmailAddresses, apiSocket.AllowedEmailAddresses) &&
+		stringSlicesEqual(apiSocket.AllowedEmailDomains, localSocket.AllowedEmailDomains) &&
+		stringSlicesEqual(localSocket.AllowedEmailDomains, apiSocket.AllowedEmailDomains)
 
-	if len(apiSocket.AllowedEmailDomains) > 0 && len(localSocket.AllowedEmailDomains) > 0 && reflect.DeepEqual(apiSocket.AllowedEmailDomains, localSocket.AllowedEmailDomains) {
-		return &apiSocket, nil
-	}
-
-	if apiSocket.UpstreamHttpHostname != localSocket.UpstreamHttpHostname ||
+	if !check || apiSocket.UpstreamHttpHostname != localSocket.UpstreamHttpHostname ||
 		apiSocket.UpstreamUsername != localSocket.UpstreamUsername ||
 		apiSocket.UpstreamType != localSocket.UpstreamType ||
 		apiSocket.CloudAuthEnabled != localSocket.CloudAuthEnabled {
@@ -181,7 +166,7 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 		apiSocket.AllowedEmailDomains = localSocket.AllowedEmailDomains
 		apiSocket.UpstreamHttpHostname = localSocket.UpstreamHttpHostname
 		apiSocket.UpstreamUsername = localSocket.UpstreamUsername
-		apiSocket.UpstreamType = localSocket.UpstreamType
+		apiSocket.UpstreamType = ""
 		apiSocket.CloudAuthEnabled = localSocket.CloudAuthEnabled
 		apiSocket.Tags = localSocket.Tags
 
@@ -190,7 +175,7 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 			return nil, err
 		}
 
-		log.Println("socket updated")
+		log.Printf("socket updated from local to api %v", apiSocket.Name)
 	}
 
 	return &apiSocket, nil
@@ -219,18 +204,17 @@ func (c *ConnectorCore) CheckSocketsToDelete(ctx context.Context, socketsFromApi
 		}
 
 		if s, ok := localSocketsMap[apiSocket.ConnectorData.Key()]; ok {
-			log.Printf("socket exists locally: %s", s.Name)
-
 			// check if socket needs to be recreated
 			if *s.ConnectorData != *apiSocket.ConnectorData {
 				log.Println("socket data is different, so we are recreating the socket")
 
-				_, err := c.RecreateSocket(ctx, apiSocket.SocketID, s)
+				createdSocket, err := c.RecreateSocket(ctx, apiSocket.SocketID, s)
 				if err != nil {
 					return err
 				}
+				localSocketsMap[apiSocket.ConnectorData.Key()] = *createdSocket
 			}
-		} else if apiSocket.ConnectorData.Name == c.cfg.Connector.Name {
+		} else if apiSocket.ConnectorData.Connector == c.cfg.Connector.Name {
 			log.Printf("socket does not exists locally, deleting the socket %s", apiSocket.Name)
 			err := c.mysocketAPI.DeleteSocket(ctx, apiSocket.SocketID)
 			if err != nil {
@@ -260,6 +244,7 @@ func (c *ConnectorCore) CheckSocketsToCreate(ctx context.Context, localSockets [
 		} else {
 			updatedSocket, err := c.CheckAndUpdateSocket(ctx, apiSocket, localSocket)
 			if err != nil {
+				log.Printf("error updating the socket: %v", err)
 				return nil, err
 			}
 
@@ -308,4 +293,16 @@ func (c *ConnectorCore) CreateSocketAndTunnel(ctx context.Context, s *models.Soc
 	}
 
 	return createdSocket, nil
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }

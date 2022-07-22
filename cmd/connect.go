@@ -184,6 +184,10 @@ var connectCmd = &cobra.Command{
 		}
 
 		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"], "")
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		fmt.Println("cleaning up...")
 		client, err = http.NewClient()
 

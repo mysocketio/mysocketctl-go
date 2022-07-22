@@ -27,6 +27,7 @@ type SocketConfig struct {
 	UpstreamType          string   `mapstructure:"upstream_type"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
 	DatabaseCredentials   string   `mapstructure:"database_credentials"`
+	UpstreamHttpHostname  string   `mapstructure:"upstream_http_hostname"`
 }
 
 type Credentials struct {

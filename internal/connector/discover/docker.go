@@ -46,8 +46,11 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 		for _, container := range containers {
 			labels := container.Labels
 			var instanceName string
+			if len(labels) > 0 {
+				instanceName = container.Names[0]
+			}
 			for k, v := range labels {
-				if k == "Name" {
+				if k == "Name" && instanceName == "" {
 					instanceName = v
 				}
 				if strings.HasPrefix(strings.ToLower(k), "mysocket") {

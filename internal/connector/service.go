@@ -101,6 +101,7 @@ func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Conf
 
 		c.StartSocketWorker(groupCtx, connectorCore, socketUpdateCh, g)
 		c.StartDiscovery(groupCtx, connectorCore, socketUpdateCh, g)
+		connectorCore.TunnelConnectJob(groupCtx, g)
 	}
 
 	if err := g.Wait(); err != nil {
@@ -119,25 +120,9 @@ func (c *ConnectorService) StartSocketWorker(ctx context.Context, connectorCore 
 	group.Go(func() error {
 		for {
 			select {
-			case sToUpdate := <-socketUpdateCh:
+			case sockets := <-socketUpdateCh:
 				c.logger.Info("receiving an update")
-				sockets, err := connectorCore.SocketsCoreHandler(ctx, sToUpdate)
-				if err != nil {
-					log.Printf("failed to check new sockets: %v", err)
-					continue
-				}
-
-				for _, socket := range sockets {
-					if !connectorCore.IsSocketConnected(socket.ConnectorData.Key()) {
-						c.logger.Info("found new socket to connect")
-
-						go func(ctx context.Context, socket models.Socket) {
-							if err := connectorCore.TunnelConnnect(ctx, socket); err != nil {
-								c.logger.Error("error connecting to socket", zap.String("error", err.Error()))
-							}
-						}(ctx, socket)
-					}
-				}
+				connectorCore.HandleUpdates(ctx, sockets)
 			case <-ctx.Done():
 				return errors.New("context canceled")
 			}

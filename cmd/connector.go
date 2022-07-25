@@ -20,7 +20,7 @@ var connectorStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "start the connector",
 	Run: func(cmd *cobra.Command, args []string) {
-		log, _ := zap.NewDevelopment()
+		log, _ := zap.NewProduction()
 		defer log.Sync()
 
 		var configPath string

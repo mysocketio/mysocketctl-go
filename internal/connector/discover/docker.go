@@ -49,6 +49,7 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 			var instanceName string
 			if len(labels) > 0 {
 				instanceName = container.Names[0]
+				instanceName = strings.Replace(instanceName, "/", "", -1)
 			}
 			for k, v := range labels {
 				if k == "Name" && instanceName == "" {

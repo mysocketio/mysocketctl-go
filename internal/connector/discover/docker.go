@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/mitchellh/mapstructure"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -58,7 +58,8 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 				if strings.HasPrefix(strings.ToLower(k), "mysocket") {
 					mySocketMetadata := s.parseLabels(v)
 					if mySocketMetadata.Group != "" && group.Group == mySocketMetadata.Group {
-						ip := s.extractIPAddress(container.NetworkSettings.Networks)
+						// always use the localhost IP address
+						ip := "127.0.0.1"
 						port := s.extractPort(container.Ports)
 
 						if port == 0 {
@@ -120,25 +121,15 @@ func (s *DockerFinder) parseLabels(label string) SocketData {
 }
 
 func (s *DockerFinder) extractPort(ports []types.Port) uint16 {
+	re, _ := regexp.Compile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 
 	for _, p := range ports {
-		if p.Type == "tcp" {
+		if p.Type == "tcp" && re.MatchString(p.IP) {
 			return p.PublicPort
 		}
 	}
 
 	return 0
-}
-
-func (s *DockerFinder) extractIPAddress(networkSettings map[string]*network.EndpointSettings) string {
-
-	for _, value := range networkSettings {
-		if value.IPAddress != "" {
-			return value.IPAddress
-		}
-	}
-
-	return ""
 }
 
 func (s *DockerFinder) Name() string {

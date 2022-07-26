@@ -179,9 +179,11 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 
 	discoveredSockets := socketsToUpdate
 
+	// boostrap sockets coming from the discovery
 	localSocketsMap := make(map[string]models.Socket)
 	for i, socket := range discoveredSockets {
 		socket.PluginName = c.discovery.Name()
+		socket.SanitizeName()
 		socket.BuildConnectorData(c.cfg.Connector.Name)
 		socket.Tags = socket.ConnectorData.Tags()
 		socket.SetupTypeAndUpstreamTypeByPort()

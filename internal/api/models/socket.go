@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type ConnectorData struct {
@@ -72,6 +73,10 @@ type Socket struct {
 	InstanceId     string         `json:"-"`
 	PluginName     string         `json:"-"`
 	ConnectorData  *ConnectorData `json:"-"`
+}
+
+func (s *Socket) SanitizeName() {
+	s.Name = strings.Replace(s.Name, ".", "-", -1)
 }
 
 func (s *Socket) BuildConnectorData(connectorName string) {

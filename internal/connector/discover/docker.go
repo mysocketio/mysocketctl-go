@@ -59,17 +59,15 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 				if strings.HasPrefix(strings.ToLower(k), "mysocket") {
 					mySocketMetadata := s.parseLabels(v)
 					if mySocketMetadata.Group != "" && group.Group == mySocketMetadata.Group {
-						// always use the localhost IP address
-						// ip := "127.0.0.1"
 						ip := s.extractIPAddress(container.NetworkSettings.Networks)
 						port := s.extractPort(container.Ports)
 
 						if port == 0 {
-							log.Println("Could not determine container Port... ignoring")
+							log.Println("Could not determine container Port... ignoring instance: ", instanceName)
 							continue
 						}
 						if ip == "" {
-							log.Println("Could not determine container IP... ignoring")
+							log.Println("Could not determine container IP... ignoring instance: ", instanceName)
 							continue
 						}
 

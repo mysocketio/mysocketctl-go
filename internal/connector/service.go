@@ -33,20 +33,15 @@ func (c *ConnectorService) Start() error {
 	log.Println("starting the connector service")
 
 	ctx := context.Background()
-	var accessToken string
-	var err error
+	mysocketAPI := api.NewAPI()
 
-	if c.cfg.Credentials.Token != "" {
-		log.Println("using token defined in config file")
-		accessToken = c.cfg.Credentials.Token
-	} else {
-		log.Println("using token defined in mysocketio file")
-		accessToken, err = http.GetToken()
-	}
-
+	accessToken, err := c.fetchAccessToken(mysocketAPI)
 	if err != nil {
 		return err
 	}
+
+	//login with accesstoken or username and password
+	mysocketAPI.With(api.WithAccessToken(accessToken))
 
 	var plugins []discover.Discover
 	if len(c.cfg.AwsGroups) > 0 {
@@ -82,17 +77,41 @@ func (c *ConnectorService) Start() error {
 	// always load the static socket plugin
 	plugins = append(plugins, &discover.StaticSocketFinder{})
 
-	c.StartWithPlugins(ctx, c.cfg, accessToken, plugins)
+	c.StartWithPlugins(ctx, c.cfg, mysocketAPI, plugins)
 
 	return nil
 }
 
-func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Config, accessToken string, plugins []discover.Discover) error {
+func (c *ConnectorService) fetchAccessToken(mysocketAPI *api.API) (string, error) {
+	if c.cfg.Credentials.Token != "" {
+		c.logger.Info("using token defined in config file")
+		accessToken := c.cfg.Credentials.Token
+
+		return accessToken, nil
+	} else if c.cfg.Credentials.GetUsername() != "" && c.cfg.Credentials.Password != "" {
+		c.logger.Info("logging in with username and password")
+		resp, err := mysocketAPI.Login(c.cfg.Credentials.GetUsername(), c.cfg.Credentials.Password)
+		if err != nil {
+			return "", fmt.Errorf("failed to login: %v", err)
+		}
+
+		return resp.Token, nil
+	} else {
+		c.logger.Info("using token defined in mysocketio file")
+		accessToken, err := http.GetToken()
+		if err != nil {
+			return "", err
+		}
+
+		return accessToken, nil
+	}
+}
+
+func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Config, mysocketAPI *api.API, plugins []discover.Discover) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	g, groupCtx := errgroup.WithContext(ctx)
-	mysocketAPI := api.NewAPI(accessToken)
 
 	for _, discoverPlugin := range plugins {
 		connectorCore := core.NewConnectorCore(c.logger, c.cfg, discoverPlugin, mysocketAPI)

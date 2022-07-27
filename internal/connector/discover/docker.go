@@ -31,6 +31,7 @@ func (s *DockerFinder) SkipRun(ctx context.Context, cfg config.Config, state Dis
 
 func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) []models.Socket {
 	time.Sleep(10 * time.Second)
+
 	sockets := []models.Socket{}
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {

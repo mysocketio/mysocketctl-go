@@ -48,7 +48,9 @@ var connectorStartCmd = &cobra.Command{
 			}
 		}
 
-		connector.NewConnectorService(*cfg, log).Start()
+		if err := connector.NewConnectorService(*cfg, log).Start(); err != nil {
+			log.Error("failed to start connector", zap.String("error", err.Error()))
+		}
 	},
 }
 

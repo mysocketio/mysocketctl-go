@@ -169,7 +169,7 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 }
 
 func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string, accessToken string) error {
-	tunnel, err := api.NewAPI(accessToken).GetTunnel(context.Background(), socketID, tunnelID)
+	tunnel, err := api.NewAPI(api.WithAccessToken(accessToken)).GetTunnel(context.Background(), socketID, tunnelID)
 	if err != nil {
 		return fmt.Errorf("error getting tunnel: %v", err)
 	}

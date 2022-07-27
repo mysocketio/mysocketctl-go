@@ -36,7 +36,7 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 	c.socketID = socketID
 	c.tunnelID = tunnelID
 
-	tunnel, err := api.NewAPI(accessToken).GetTunnel(context.Background(), socketID, tunnelID)
+	tunnel, err := api.NewAPI(api.WithAccessToken(accessToken)).GetTunnel(context.Background(), socketID, tunnelID)
 	if err != nil {
 		return fmt.Errorf("error getting tunnel: %v", err)
 	}

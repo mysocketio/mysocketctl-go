@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/mysocketio/mysocketctl-go/internal/connector"
@@ -27,12 +26,7 @@ var connectorStartCmd = &cobra.Command{
 		if connectorConfig != "" {
 			configPath = connectorConfig
 		} else {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				log.Fatal("failed to get home dir", zap.String("error", err.Error()))
-			}
-
-			configPath = filepath.Join(home, ".mysocketio_connector_config")
+			configPath = filepath.Join("mysocket.yaml")
 		}
 
 		parser := config.NewConfigParser()

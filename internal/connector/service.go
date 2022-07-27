@@ -88,9 +88,9 @@ func (c *ConnectorService) fetchAccessToken(mysocketAPI *api.API) (string, error
 		accessToken := c.cfg.Credentials.Token
 
 		return accessToken, nil
-	} else if c.cfg.Credentials.Username != "" && c.cfg.Credentials.Password != "" {
+	} else if c.cfg.Credentials.GetUsername() != "" && c.cfg.Credentials.Password != "" {
 		c.logger.Info("logging in with username and password")
-		resp, err := mysocketAPI.Login(c.cfg.Credentials.Username, c.cfg.Credentials.Password)
+		resp, err := mysocketAPI.Login(c.cfg.Credentials.GetUsername(), c.cfg.Credentials.Password)
 		if err != nil {
 			return "", fmt.Errorf("failed to login: %v", err)
 		}

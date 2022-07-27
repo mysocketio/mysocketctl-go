@@ -32,8 +32,21 @@ type SocketConfig struct {
 
 type Credentials struct {
 	Username string
+	User     string
 	Password string
 	Token    string
+}
+
+func (c Credentials) GetUsername() string {
+	if c.Username != "" {
+		return c.Username
+	}
+
+	if c.User != "" {
+		return c.User
+	}
+
+	return ""
 }
 
 type ConnectorGroups struct {

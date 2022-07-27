@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"sync/atomic"
 
 	"github.com/mysocketio/mysocketctl-go/internal/api"
@@ -29,35 +28,29 @@ type ConnectorCore struct {
 	mysocketAPI *api.API
 	logger      *zap.Logger
 
-	numberOfRuns     int64
-	connectedSockets map[string]models.Socket
-	discoverState    discover.DiscoverState
-	lock             sync.RWMutex
-	coreLock         sync.RWMutex
-
-	connectChan      chan connectTunnelData
-	connectedTunnels map[string]*ssh.Connection
+	numberOfRuns int64
+	// connectedSockets map[string]models.Socket
+	discoverState discover.DiscoverState
+	connectChan   chan connectTunnelData
+	// connectedTunnels map[string]*ssh.Connection
+	connectedTunnels *SyncMap
 }
 
 func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.Discover, mysocketAPI *api.API) *ConnectorCore {
-	connectedSockets := make(map[string]models.Socket)
-	connectedTunnels := make(map[string]*ssh.Connection)
+	connectedTunnels := &SyncMap{}
 	connectChan := make(chan connectTunnelData, 1)
 	discoverState := discover.DiscoverState{
 		State:     make(map[string]interface{}),
 		RunsCount: 0,
 	}
 
-	return &ConnectorCore{connectChan: connectChan, logger: logger, discovery: discovery, cfg: cfg, mysocketAPI: mysocketAPI, connectedSockets: connectedSockets, discoverState: discoverState, connectedTunnels: connectedTunnels}
+	return &ConnectorCore{connectedTunnels: connectedTunnels, connectChan: connectChan, logger: logger, discovery: discovery, cfg: cfg, mysocketAPI: mysocketAPI, discoverState: discoverState}
 }
 
 func (c *ConnectorCore) IsSocketConnected(key string) bool {
-	c.coreLock.Lock()
-	defer c.coreLock.Unlock()
-
-	session, ok := c.connectedTunnels[key]
+	session, ok := c.connectedTunnels.Get(key)
 	if ok {
-		if session.IsClosed() {
+		if session.(*ssh.Connection).IsClosed() {
 			return false
 		}
 	}
@@ -67,9 +60,7 @@ func (c *ConnectorCore) IsSocketConnected(key string) bool {
 
 func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket) error {
 	session := ssh.NewConnection(c.logger)
-	c.lock.Lock()
-	c.connectedTunnels[socket.ConnectorData.Key()] = session
-	c.lock.Unlock()
+	c.connectedTunnels.m.Store(socket.ConnectorData.Key(), session)
 
 	// improve the error handling
 	userID, _, err := http.GetUserIDFromAccessToken(c.mysocketAPI.AccessToken)
@@ -99,9 +90,7 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 
 	err = session.Connect(ctx, *userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", false, org.Certificates["ssh_public_key"], c.mysocketAPI.AccessToken)
 	if err != nil {
-		c.lock.Lock()
-		delete(c.connectedTunnels, socket.ConnectorData.Key())
-		c.lock.Unlock()
+		c.connectedTunnels.Delete(socket.ConnectorData.Key())
 		return err
 	}
 
@@ -147,8 +136,8 @@ func (c *ConnectorCore) TunnelConnectJob(ctx context.Context, group *errgroup.Gr
 					})
 				}
 				if tunnelConnectData.action == "disconnect" {
-					if session, ok := c.connectedTunnels[tunnelConnectData.key]; ok {
-						session.Close()
+					if session, ok := c.connectedTunnels.Get(tunnelConnectData.key); ok {
+						session.(*ssh.Connection).Close()
 					}
 				}
 			}
@@ -213,7 +202,7 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 	logger.Info("sockets found",
 		zap.Int("local connector sockets", len(discoveredSockets)),
 		zap.Int("api sockets", len(socketsFromApi)),
-		zap.Int("connected sockets", len(c.connectedTunnels)))
+		zap.Int("connected sockets", c.connectedTunnels.Len()))
 
 	if err := c.CheckSocketsToDelete(ctx, socketsFromApi, localSocketsMap); err != nil {
 		return nil, err

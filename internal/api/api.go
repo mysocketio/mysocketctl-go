@@ -19,6 +19,14 @@ const APIUrl = "https://api.mysocket.io"
 
 var ErrUnauthorized = errors.New("unauthorized")
 
+type APIOption func(*API)
+
+func WithAccessToken(accessToken string) APIOption {
+	return func(h *API) {
+		h.AccessToken = accessToken
+	}
+}
+
 type API struct {
 	AccessToken string
 	Version     string
@@ -28,8 +36,14 @@ type ErrorMessage struct {
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 
-func NewAPI(accessToken string) *API {
-	return &API{AccessToken: accessToken}
+func NewAPI(opts ...APIOption) *API {
+	api := API{}
+
+	for _, opt := range opts {
+		opt(&api)
+	}
+
+	return &api
 }
 
 func APIURL() string {
@@ -41,24 +55,23 @@ func APIURL() string {
 }
 
 func (a *API) Request(method string, url string, target interface{}, data interface{}) error {
-	if a.AccessToken == "" {
-		token, err := mysocketctlhttp.GetToken()
-		if err != nil {
-			return err
-		}
-
-		a.AccessToken = token
-	}
-
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
 	req, _ := http.NewRequest(method, fmt.Sprintf("%s/%s", APIURL(), url), body)
 
-	sanitizedAccessToken := strings.Trim(a.AccessToken, "\n")
-	sanitizedAccessToken = strings.Trim(sanitizedAccessToken, " ")
+	if a.AccessToken == "" {
+		token, _ := mysocketctlhttp.GetToken()
 
-	req.Header.Add("x-access-token", sanitizedAccessToken)
+		a.AccessToken = token
+	}
+
+	if a.AccessToken != "" {
+		sanitizedAccessToken := strings.Trim(a.AccessToken, "\n")
+		sanitizedAccessToken = strings.Trim(sanitizedAccessToken, " ")
+		req.Header.Add("x-access-token", sanitizedAccessToken)
+	}
+
 	req.Header.Add("x-client-requested-with", "mysocketctl")
 	if a.Version != "" {
 		req.Header.Add("x-client-version", a.Version)
@@ -99,6 +112,11 @@ func (a *API) Request(method string, url string, target interface{}, data interf
 	}
 
 	return nil
+}
+
+func (a *API) With(opt APIOption) *API {
+	opt(a)
+	return a
 }
 
 func (a *API) GetOrganizationInfo(ctx context.Context) (*models.Organization, error) {
@@ -186,4 +204,16 @@ func (a *API) UpdateSocket(ctx context.Context, socketID string, socket models.S
 	}
 
 	return nil
+}
+
+func (a *API) Login(email, password string) (*models.LoginResponse, error) {
+	form := &models.LoginRequest{Email: email, Password: password}
+
+	loginResponse := models.LoginResponse{}
+	err := a.Request("POST", "login", &loginResponse, form)
+	if err != nil {
+		return nil, err
+	}
+
+	return &loginResponse, nil
 }

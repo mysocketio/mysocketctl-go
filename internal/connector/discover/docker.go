@@ -77,7 +77,7 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 			}
 		}
 	}
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	return sockets
 }

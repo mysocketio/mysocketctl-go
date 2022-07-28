@@ -5,6 +5,7 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,7 +63,17 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 					mySocketMetadata := s.parseLabels(v)
 					if mySocketMetadata.Group != "" && group.Group == mySocketMetadata.Group {
 						ip := s.extractIPAddress(container.NetworkSettings.Networks)
-						port := s.extractPort(container.Ports)
+
+						// Now determine the port
+						// First check if it is defined in the labels, otherwise we'll take it from Docker ports
+						metadata_port := 0
+						metadata_port, _ = strconv.Atoi(mySocketMetadata.Port)
+						port := uint16(metadata_port)
+
+						if port == 0 {
+							// Not in label, so let's guess from the docker port
+							port = s.extractPort(container.Ports)
+						}
 
 						if port == 0 {
 							log.Println("Could not determine container Port... ignoring instance: ", instanceName)
@@ -138,10 +149,17 @@ func (s *DockerFinder) extractIPAddress(networkSettings map[string]*network.Endp
 }
 
 func (s *DockerFinder) extractPort(ports []types.Port) uint16 {
+	// First try to find a port that is linked to an IP
+	// Sometimes this field is empty, which is odd.
 	re, _ := regexp.Compile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
-
 	for _, p := range ports {
-		if p.Type == "tcp" && re.MatchString(p.IP) {
+		if p.Type == "tcp" && re.MatchString(p.IP) && p.PrivatePort > 0 {
+			return p.PrivatePort
+		}
+	}
+	// Otherwise return the first private port, even if IP is empty
+	for _, p := range ports {
+		if p.Type == "tcp" && p.PrivatePort > 0 {
 			return p.PrivatePort
 		}
 	}

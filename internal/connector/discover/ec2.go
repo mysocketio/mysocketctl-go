@@ -122,8 +122,16 @@ func (s *Ec2Discover) Name() string {
 func buildSocketName(instanceName, connectorName, socketType string) string {
 	s := strings.Replace(instanceName, "_", "-", -1)
 	s = strings.Replace(s, ".", "-", -1)
+	s = strings.Replace(s, " ", "-", -1)
 
-	return fmt.Sprintf("%v-%v-%v", socketType, s, connectorName)
+	if socketType == "" {
+		// In case Type is empty
+		// Ideally we do the guessing before this, dont want to duplicate code. for now just ignore.
+		return fmt.Sprintf("%v-%v", s, connectorName)
+	} else {
+		return fmt.Sprintf("%v-%v-%v", socketType, s, connectorName)
+	}
+
 }
 
 func parseAwsDataTag(tag string) Ec2SocketData {

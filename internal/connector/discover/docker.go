@@ -3,8 +3,10 @@ package discover
 import (
 	"context"
 	"log"
+	"net"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
+	"k8s.io/utils/strings/slices"
 )
 
 type SocketData struct {
@@ -48,7 +51,14 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 		return nil, err
 	}
 
+	// Let's determine if the connector runs in a docker container, and if so, what network id.
+	connectorNetworkId, connectorGwIp, err := s.findNetworkID(containers)
+	if err != nil {
+		println("Error while trying to determine Network ID: ", err)
+	}
+
 	for _, group := range cfg.DockerPlugin {
+
 		for _, container := range containers {
 			labels := container.Labels
 			var instanceName string
@@ -56,6 +66,7 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 				instanceName = container.Names[0]
 				instanceName = strings.Replace(instanceName, "/", "", -1)
 			}
+
 			for k, v := range labels {
 				if k == "Name" && instanceName == "" {
 					instanceName = v
@@ -63,8 +74,28 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 				if strings.HasPrefix(strings.ToLower(k), "mysocket") {
 					mySocketMetadata := s.parseLabels(v)
 					if mySocketMetadata.Group != "" && group.Group == mySocketMetadata.Group {
-						ip := s.extractIPAddress(container.NetworkSettings.Networks)
-						port := s.extractPort(container.Ports)
+						ip := s.extractIPAddress(container.NetworkSettings.Networks, connectorNetworkId, connectorGwIp)
+
+						// Now determine the port
+						// First check if it is defined in the labels, otherwise we'll take it from Docker ports
+						metadataPort := 0
+						metadataPort, _ = strconv.Atoi(mySocketMetadata.Port)
+						port := uint16(metadataPort)
+
+						// Check what port we should return.
+						// We default to the Private port.
+						// But If we detect we run between networks, we should overwrite it to use the exposed port
+
+						if connectorGwIp == ip {
+							// This means, connector runs in a container, and is in a different namespace
+							// So we assume no routing between networks, lets use
+							port = s.extractPort(container.Ports, "public")
+						}
+
+						if port == 0 {
+							// Not in label, so let's guess from the docker port
+							port = s.extractPort(container.Ports, "private")
+						}
 
 						if port == 0 {
 							log.Println("Could not determine container Port... ignoring instance: ", instanceName)
@@ -128,8 +159,59 @@ func (s *DockerFinder) parseLabels(label string) SocketData {
 	return data
 }
 
-func (s *DockerFinder) extractIPAddress(networkSettings map[string]*network.EndpointSettings) string {
+func (s *DockerFinder) findNetworkID(containers []types.Container) (string, string, error) {
+	ifas, err := net.Interfaces()
+	if err != nil {
+		return "", "", err
+	}
+	var macAddresses []string
+	for _, ifa := range ifas {
+		a := ifa.HardwareAddr.String()
+		if a != "" {
+			macAddresses = append(macAddresses, a)
+		}
+	}
 
+	// Now we have a list of mac addresses.
+	// Let's see if there are any container namespaces with that mac
+	for _, container := range containers {
+		for _, value := range container.NetworkSettings.Networks {
+			if value.MacAddress != "" {
+				if slices.Contains(macAddresses, value.MacAddress) {
+					return value.NetworkID, value.Gateway, nil
+				}
+			}
+		}
+	}
+	return "", "", nil
+
+}
+func (s *DockerFinder) extractIPAddress(networkSettings map[string]*network.EndpointSettings, connectorNetworkId string, connectorGwIp string) string {
+
+	if connectorNetworkId != "" {
+		// This means the connector likely run in a container.
+		for _, value := range networkSettings {
+			if value.NetworkID == connectorNetworkId {
+				// This means we're in the same network.
+				// So we can retunr the private IP
+
+				if value.IPAddress != "" {
+					return value.IPAddress
+				}
+			}
+		}
+
+		// If we get here, then we didnt run the same network.. so we should return the default GW IP of the connector
+		for _, value := range networkSettings {
+			// This means we're in the same network.
+			// So we can retunr the private IP
+			if value.IPAddress != "" {
+				return connectorGwIp
+			}
+		}
+	}
+	// Otherwise fall through, this means we likely run on the host and not in a contaoiner
+	// and just return the private IP, Could probably also be 127.0.0.1
 	for _, value := range networkSettings {
 		if value.IPAddress != "" {
 			return value.IPAddress
@@ -139,11 +221,28 @@ func (s *DockerFinder) extractIPAddress(networkSettings map[string]*network.Endp
 	return ""
 }
 
-func (s *DockerFinder) extractPort(ports []types.Port) uint16 {
+func (s *DockerFinder) extractPort(ports []types.Port, portType string) uint16 {
+	// First try to find a port that is linked to an IP
+	// Sometimes this field is empty, which is odd.
 	re, _ := regexp.Compile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 
+	if portType == "public" {
+		for _, p := range ports {
+			if p.Type == "tcp" && re.MatchString(p.IP) && p.PublicPort > 0 {
+				return p.PublicPort
+			}
+		}
+	} else {
+		for _, p := range ports {
+			if p.Type == "tcp" && re.MatchString(p.IP) && p.PrivatePort > 0 {
+				return p.PrivatePort
+			}
+		}
+	}
+	// fall through
+	// Otherwise return the first private port, even if IP is empty
 	for _, p := range ports {
-		if p.Type == "tcp" && re.MatchString(p.IP) {
+		if p.Type == "tcp" && p.PrivatePort > 0 {
 			return p.PrivatePort
 		}
 	}

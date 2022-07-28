@@ -25,7 +25,7 @@ type connectTunnelData struct {
 type ConnectorCore struct {
 	discovery   discover.Discover
 	cfg         config.Config
-	mysocketAPI *api.API
+	mysocketAPI api.API
 	logger      *zap.Logger
 
 	numberOfRuns int64
@@ -36,7 +36,7 @@ type ConnectorCore struct {
 	connectedTunnels *SyncMap
 }
 
-func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.Discover, mysocketAPI *api.API) *ConnectorCore {
+func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.Discover, mysocketAPI api.API) *ConnectorCore {
 	connectedTunnels := &SyncMap{}
 	connectChan := make(chan connectTunnelData, 1)
 	discoverState := discover.DiscoverState{
@@ -63,7 +63,7 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 	c.connectedTunnels.m.Store(socket.ConnectorData.Key(), session)
 
 	// improve the error handling
-	userID, _, err := http.GetUserIDFromAccessToken(c.mysocketAPI.AccessToken)
+	userID, _, err := http.GetUserIDFromAccessToken(c.mysocketAPI.GetAccessToken())
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 
 	tunnel := socket.Tunnels[0]
 
-	err = session.Connect(ctx, *userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", false, org.Certificates["ssh_public_key"], c.mysocketAPI.AccessToken)
+	err = session.Connect(ctx, *userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", false, org.Certificates["ssh_public_key"], c.mysocketAPI.GetAccessToken())
 	if err != nil {
 		c.connectedTunnels.Delete(socket.ConnectorData.Key())
 		return err
@@ -135,6 +135,7 @@ func (c *ConnectorCore) TunnelConnectJob(ctx context.Context, group *errgroup.Gr
 						return nil
 					})
 				}
+
 				if tunnelConnectData.action == "disconnect" {
 					if session, ok := c.connectedTunnels.Get(tunnelConnectData.key); ok {
 						session.(*ssh.Connection).Close()
@@ -152,7 +153,12 @@ func (c *ConnectorCore) DiscoverNewSocketChanges(ctx context.Context, ch chan []
 		return
 	}
 
-	sockets := c.discovery.Find(ctx, c.cfg, c.discoverState)
+	sockets, err := c.discovery.Find(ctx, c.cfg, c.discoverState)
+	if err != nil {
+		c.logger.Error("error discovering new sockets", zap.String("error", err.Error()))
+		return
+	}
+
 	for i, s := range sockets {
 		s.BuildConnectorDataAndTags(c.cfg.Connector.Name)
 		sockets[i] = s

@@ -25,25 +25,27 @@ type SocketData struct {
 
 type DockerFinder struct{}
 
+var _ Discover = (*DockerFinder)(nil)
+
 func (s *DockerFinder) SkipRun(ctx context.Context, cfg config.Config, state DiscoverState) bool {
 	return false
 }
 
-func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) []models.Socket {
+func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
 	time.Sleep(10 * time.Second)
 
 	sockets := []models.Socket{}
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Println("Error creating docker client:", err)
-		return sockets
+		return nil, err
 	}
 
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
 
 	if err != nil {
 		log.Println("Error getting containers:", err)
-		return sockets
+		return nil, err
 	}
 
 	for _, group := range cfg.DockerPlugin {
@@ -80,7 +82,7 @@ func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state Discov
 		}
 	}
 
-	return sockets
+	return sockets, nil
 }
 
 func (s *DockerFinder) buildSocket(connectorName string, group config.ConnectorGroups, socketData SocketData, instance types.Container, instanceName, ipAddress string, port uint16) models.Socket {

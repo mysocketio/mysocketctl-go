@@ -11,12 +11,16 @@ import (
 
 type StaticSocketFinder struct{}
 
+var _ Discover = (*StaticSocketFinder)(nil)
+
 func (s *StaticSocketFinder) SkipRun(ctx context.Context, cfg config.Config, state DiscoverState) bool {
 	return state.RunsCount > 1 || state.RunsCount == 1
 }
 
-func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) []models.Socket {
+func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
 	sockets := []models.Socket{}
+
+	time.Sleep(5 * time.Second)
 
 	for _, socketMap := range cfg.Sockets {
 		socket := models.Socket{}
@@ -48,8 +52,7 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 		sockets = append(sockets, socket)
 	}
 
-	time.Sleep(5 * time.Second)
-	return sockets
+	return sockets, nil
 }
 
 func (s *StaticSocketFinder) Name() string {

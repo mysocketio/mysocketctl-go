@@ -82,7 +82,7 @@ func (c *ConnectorService) Start() error {
 	return nil
 }
 
-func (c *ConnectorService) fetchAccessToken(mysocketAPI *api.API) (string, error) {
+func (c *ConnectorService) fetchAccessToken(mysocketAPI api.API) (string, error) {
 	if c.cfg.Credentials.Token != "" {
 		c.logger.Info("using token defined in config file")
 		accessToken := c.cfg.Credentials.Token
@@ -107,7 +107,7 @@ func (c *ConnectorService) fetchAccessToken(mysocketAPI *api.API) (string, error
 	}
 }
 
-func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Config, mysocketAPI *api.API, plugins []discover.Discover) error {
+func (c *ConnectorService) StartWithPlugins(ctx context.Context, cfg config.Config, mysocketAPI api.API, plugins []discover.Discover) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

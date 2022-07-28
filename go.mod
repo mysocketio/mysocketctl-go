@@ -7,6 +7,8 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/aws/aws-sdk-go v1.44.54
+	github.com/bluele/factory-go v0.0.1
+	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/creack/pty v1.1.11
 	github.com/docker/distribution v2.8.1+incompatible // indirect
@@ -32,6 +34,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.0
+	github.com/stretchr/testify v1.7.0
 	github.com/takama/daemon v1.0.0
 	github.com/txn2/txeh v1.3.0
 	go.uber.org/zap v1.10.0

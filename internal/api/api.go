@@ -19,25 +19,39 @@ const APIUrl = "https://api.mysocket.io"
 
 var ErrUnauthorized = errors.New("unauthorized")
 
-type APIOption func(*API)
+type API interface {
+	GetOrganizationInfo(ctx context.Context) (*models.Organization, error)
+	GetSockets(ctx context.Context) ([]models.Socket, error)
+	GetSocket(ctx context.Context, socketID string) (*models.Socket, error)
+	GetTunnel(ctx context.Context, socketID string, tunnelID string) (*models.Tunnel, error)
+	CreateTunnel(ctx context.Context, socketID string) (*models.Tunnel, error)
+	CreateSocket(ctx context.Context, socket *models.Socket) (*models.Socket, error)
+	UpdateSocket(ctx context.Context, socketID string, socket models.Socket) error
+	DeleteSocket(ctx context.Context, socketID string) error
+	Login(email, password string) (*models.LoginResponse, error)
+	GetAccessToken() string
+}
+
+var APIImpl = (*MysocketAPI)(nil)
+
+type APIOption func(*MysocketAPI)
 
 func WithAccessToken(accessToken string) APIOption {
-	return func(h *API) {
+	return func(h *MysocketAPI) {
 		h.AccessToken = accessToken
 	}
 }
 
-type API struct {
+type MysocketAPI struct {
 	AccessToken string
 	Version     string
 }
-
 type ErrorMessage struct {
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 
-func NewAPI(opts ...APIOption) *API {
-	api := API{}
+func NewAPI(opts ...APIOption) *MysocketAPI {
+	api := MysocketAPI{}
 
 	for _, opt := range opts {
 		opt(&api)
@@ -54,7 +68,16 @@ func APIURL() string {
 	}
 }
 
-func (a *API) Request(method string, url string, target interface{}, data interface{}) error {
+func (a *MysocketAPI) Request(method string, url string, target interface{}, data interface{}) error {
+	if a.AccessToken == "" {
+		token, err := mysocketctlhttp.GetToken()
+		if err != nil {
+			return err
+		}
+
+		a.AccessToken = token
+	}
+
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
@@ -114,12 +137,12 @@ func (a *API) Request(method string, url string, target interface{}, data interf
 	return nil
 }
 
-func (a *API) With(opt APIOption) *API {
+func (a *MysocketAPI) With(opt APIOption) *MysocketAPI {
 	opt(a)
 	return a
 }
 
-func (a *API) GetOrganizationInfo(ctx context.Context) (*models.Organization, error) {
+func (a *MysocketAPI) GetOrganizationInfo(ctx context.Context) (*models.Organization, error) {
 	org := models.Organization{}
 
 	err := a.Request("GET", "organization", &org, nil)
@@ -130,7 +153,7 @@ func (a *API) GetOrganizationInfo(ctx context.Context) (*models.Organization, er
 	return &org, nil
 }
 
-func (a *API) GetSockets(ctx context.Context) ([]models.Socket, error) {
+func (a *MysocketAPI) GetSockets(ctx context.Context) ([]models.Socket, error) {
 	sockets := []models.Socket{}
 
 	err := a.Request("GET", "socket", &sockets, nil)
@@ -141,7 +164,7 @@ func (a *API) GetSockets(ctx context.Context) ([]models.Socket, error) {
 	return sockets, nil
 }
 
-func (a *API) GetSocket(ctx context.Context, socketID string) (*models.Socket, error) {
+func (a *MysocketAPI) GetSocket(ctx context.Context, socketID string) (*models.Socket, error) {
 	socket := models.Socket{}
 
 	err := a.Request("GET", fmt.Sprintf("socket/%v", socketID), &socket, nil)
@@ -152,7 +175,7 @@ func (a *API) GetSocket(ctx context.Context, socketID string) (*models.Socket, e
 	return &socket, nil
 }
 
-func (a *API) GetTunnel(ctx context.Context, socketID string, tunnelID string) (*models.Tunnel, error) {
+func (a *MysocketAPI) GetTunnel(ctx context.Context, socketID string, tunnelID string) (*models.Tunnel, error) {
 	tunnel := models.Tunnel{}
 
 	err := a.Request("GET", fmt.Sprintf("/socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil)
@@ -163,7 +186,7 @@ func (a *API) GetTunnel(ctx context.Context, socketID string, tunnelID string) (
 	return &tunnel, nil
 }
 
-func (a *API) CreateSocket(ctx context.Context, socket *models.Socket) (*models.Socket, error) {
+func (a *MysocketAPI) CreateSocket(ctx context.Context, socket *models.Socket) (*models.Socket, error) {
 	s := models.Socket{}
 
 	err := a.Request("POST", "socket", &s, socket)
@@ -174,7 +197,7 @@ func (a *API) CreateSocket(ctx context.Context, socket *models.Socket) (*models.
 	return &s, nil
 }
 
-func (a *API) CreateTunnel(ctx context.Context, socketID string) (*models.Tunnel, error) {
+func (a *MysocketAPI) CreateTunnel(ctx context.Context, socketID string) (*models.Tunnel, error) {
 	t := models.Tunnel{}
 
 	url := fmt.Sprintf("socket/%v/tunnel", socketID)
@@ -186,7 +209,7 @@ func (a *API) CreateTunnel(ctx context.Context, socketID string) (*models.Tunnel
 	return &t, nil
 }
 
-func (a *API) DeleteSocket(ctx context.Context, socketID string) error {
+func (a *MysocketAPI) DeleteSocket(ctx context.Context, socketID string) error {
 	err := a.Request("DELETE", "socket/"+socketID, nil, nil)
 	if err != nil {
 		return err
@@ -195,7 +218,7 @@ func (a *API) DeleteSocket(ctx context.Context, socketID string) error {
 	return nil
 }
 
-func (a *API) UpdateSocket(ctx context.Context, socketID string, socket models.Socket) error {
+func (a *MysocketAPI) UpdateSocket(ctx context.Context, socketID string, socket models.Socket) error {
 	var result models.Socket
 
 	err := a.Request("PUT", "socket/"+socketID, &result, &socket)
@@ -206,7 +229,7 @@ func (a *API) UpdateSocket(ctx context.Context, socketID string, socket models.S
 	return nil
 }
 
-func (a *API) Login(email, password string) (*models.LoginResponse, error) {
+func (a *MysocketAPI) Login(email, password string) (*models.LoginResponse, error) {
 	form := &models.LoginRequest{Email: email, Password: password}
 
 	loginResponse := models.LoginResponse{}
@@ -216,4 +239,8 @@ func (a *API) Login(email, password string) (*models.LoginResponse, error) {
 	}
 
 	return &loginResponse, nil
+}
+
+func (a *MysocketAPI) GetAccessToken() string {
+	return a.AccessToken
 }

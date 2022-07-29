@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,6 +27,8 @@ type Ec2SocketData struct {
 	Host  string
 }
 
+var _ Discover = (*Ec2Discover)(nil)
+
 func NewEC2Discover(ec2API ec2iface.EC2API, cfg config.Config) *Ec2Discover {
 	return &Ec2Discover{ec2API: ec2API}
 }
@@ -36,7 +37,8 @@ func (s *Ec2Discover) SkipRun(ctx context.Context, cfg config.Config, state Disc
 	return false
 }
 
-func (s *Ec2Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) []models.Socket {
+func (s *Ec2Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
+	time.Sleep(10 * time.Second)
 	// find all instance running in the configured region
 	params := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
@@ -49,7 +51,11 @@ func (s *Ec2Discover) Find(ctx context.Context, cfg config.Config, state Discove
 		},
 	}
 
-	res, _ := s.ec2API.DescribeInstances(params)
+	res, err := s.ec2API.DescribeInstances(params)
+
+	if err != nil {
+		return nil, err
+	}
 
 	var sockets []models.Socket
 
@@ -78,8 +84,8 @@ func (s *Ec2Discover) Find(ctx context.Context, cfg config.Config, state Discove
 			}
 		}
 	}
-	time.Sleep(10 * time.Second)
-	return sockets
+
+	return sockets, nil
 }
 
 func (s *Ec2Discover) buildSocket(connectorName string, group config.ConnectorGroups, socketData Ec2SocketData, instance ec2.Instance, instanceName string) *models.Socket {

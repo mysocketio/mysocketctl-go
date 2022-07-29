@@ -19,6 +19,8 @@ type K8Discover struct {
 	clusterConfig *rest.Config
 }
 
+var _ Discover = (*K8Discover)(nil)
+
 func NewK8Discover() *K8Discover {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -33,11 +35,13 @@ func (s *K8Discover) SkipRun(ctx context.Context, cfg config.Config, state Disco
 	return false
 }
 
-func (s *K8Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) []models.Socket {
+func (s *K8Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
+	time.Sleep(10 * time.Second)
+
 	clientset, err := kubernetes.NewForConfig(s.clusterConfig)
 	if err != nil {
 		fmt.Println("error creating k8 client:", err)
-		return nil
+		return nil, err
 	}
 
 	var sockets []models.Socket
@@ -61,8 +65,7 @@ func (s *K8Discover) Find(ctx context.Context, cfg config.Config, state Discover
 		}
 	}
 
-	time.Sleep(10 * time.Second)
-	return sockets
+	return sockets, nil
 }
 
 func (s *K8Discover) buildSocket(connectorName string, group config.K8Plugin, service v1.Service) *models.Socket {

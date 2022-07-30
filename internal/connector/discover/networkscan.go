@@ -44,8 +44,7 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 
 		// We can have multiple networks defined, each with their own list of interfaces and subnets/
 		// We need to loop through each network. For now in sequence, but we could do in parallel later
-		for networkName, network := range group.Networks {
-			//fmt.Printf("[+] Scanning network %s\n", networkName)
+		for _, network := range group.Networks {
 
 			subnetsToScan := network.Subnets
 
@@ -75,9 +74,11 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 							scan_result := scanPort(i, j)
 							if scan_result {
 								// Set the name, in the form of host-1-2-3-4-443
-								networkName = strings.Replace(networkName, " ", "-", -1)
-								networkName = strings.Replace(networkName, ".", "-", -1)
-								socketName := fmt.Sprintf("%s-%s-%d", networkName, strings.Replace(j.ip, ".", "-", -1), j.port)
+								socketName := fmt.Sprintf("%s-%d-%s",  j.ip, j.port,cfg.Connector.Name)
+								socketName = strings.Replace(socketName, " ", "-", -1)
+								socketName = strings.Replace(socketName, ".", "-", -1)
+								socketName = strings.Replace(socketName, "_", "-", -1)
+                                
 								// Create the socket
 
 								socket := models.Socket{}

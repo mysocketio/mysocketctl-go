@@ -64,6 +64,21 @@ type K8Plugin struct {
 	PrivateSocket         bool     `mapstructure:"private_socket"`
 }
 
+type NetworkPlugin struct {
+	Scan_interval         int64 `mapstructure:"scan_interval"`
+	Group                 string
+	AllowedEmailAddresses []string                        `mapstructure:"allowed_email_addresses"`
+	AllowedEmailDomains   []string                        `mapstructure:"allowed_email_domains"`
+	PrivateSocket         bool                            `mapstructure:"private_socket"`
+	Networks              map[string]NetworkPluginNetwork `mapstructure:"networks"`
+}
+
+type NetworkPluginNetwork struct {
+	Interfaces []string `mapstructure:"interfaces"`
+	Subnets    []string `mapstructure:"subnets"`
+	Ports      []uint16 `mapstructure:"ports"`
+}
+
 type Connector struct {
 	Name         string
 	AwsRegion    string `mapstructure:"aws-region"`
@@ -74,12 +89,13 @@ type Connector struct {
 type SocketParams []map[string]SocketConfig
 
 type Config struct {
-	Credentials  Credentials
-	Sockets      SocketParams
-	Connector    Connector
-	AwsGroups    []ConnectorGroups `mapstructure:"aws_groups"`
-	DockerPlugin []ConnectorGroups `mapstructure:"docker_plugin"`
-	K8Plugin     []K8Plugin        `mapstructure:"k8_plugin"`
+	Credentials   Credentials
+	Sockets       SocketParams
+	Connector     Connector
+	AwsGroups     []ConnectorGroups `mapstructure:"aws_groups"`
+	DockerPlugin  []ConnectorGroups `mapstructure:"docker_plugin"`
+	NetworkPlugin []NetworkPlugin   `mapstructure:"network_plugin"`
+	K8Plugin      []K8Plugin        `mapstructure:"k8_plugin"`
 }
 
 func NewConfig() *Config {

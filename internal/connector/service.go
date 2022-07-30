@@ -67,6 +67,10 @@ func (c *ConnectorService) Start() error {
 		plugins = append(plugins, &discover.DockerFinder{})
 	}
 
+	if len(c.cfg.NetworkPlugin) > 0 {
+		plugins = append(plugins, &discover.NetworkFinder{})
+	}
+
 	if c.cfg.K8Plugin != nil {
 		k8Discover := discover.NewK8Discover()
 		if k8Discover != nil {

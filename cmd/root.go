@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
-	"github.com/mysocketio/mysocketctl-go/internal/http"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 
 	"github.com/spf13/cobra"
 )
@@ -96,7 +96,7 @@ func splitLongLines(b string, maxLength int) string {
 	return s
 }
 
-func print_socket(s http.Socket) string {
+func print_socket(s models.Socket) string {
 
 	socket_output := ""
 	t := table.NewWriter()

@@ -135,7 +135,7 @@ var tunnelConnectCmd = &cobra.Command{
 			log.Fatalf("Error: %v", err)
 		}
 
-		socket := http.Socket{}
+		socket := models.Socket{}
 		err = client.Request("GET", "socket/"+socketID, &socket, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -177,7 +177,7 @@ var tunnelConnectCmd = &cobra.Command{
 			localssh = false
 		}
 
-		org := http.OrganizationInfo{}
+		org := models.Organization{}
 		err = client.Request("GET", "organization", &org, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	jwt "github.com/golang-jwt/jwt"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 )
 
 const (
@@ -158,8 +159,8 @@ func RefreshLogin() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	loginRefresh := LoginRefresh{}
-	res := TokenForm{}
+	loginRefresh := models.LoginRefresh{}
+	res := models.TokenForm{}
 
 	err = client.Request("POST", "login/refresh", &res, loginRefresh)
 	if err != nil {
@@ -187,8 +188,8 @@ func MFAChallenge(code string) error {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	form := mfaForm{Code: code}
-	res := TokenForm{}
+	form := models.MfaForm{Code: code}
+	res := models.TokenForm{}
 
 	err = c.Request("POST", "users/mfa_challenge", &res, &form)
 	if err != nil {
@@ -255,7 +256,7 @@ func CreateDeviceAuthorization() (string, error) {
 
 func Login(email, password string) (bool, error) {
 	c := &Client{}
-	form := loginForm{Email: email, Password: password}
+	form := models.LoginForm{Email: email, Password: password}
 	buf, err := json.Marshal(form)
 	if err != nil {
 		return false, err
@@ -278,7 +279,7 @@ func Login(email, password string) (bool, error) {
 		return false, errors.New("failed to login")
 	}
 
-	res := TokenForm{}
+	res := models.TokenForm{}
 	json.NewDecoder(resp.Body).Decode(&res)
 
 	c.token = res.Token
@@ -310,7 +311,7 @@ func SaveTokenInDisk(accessToken string) error {
 }
 
 func Register(name, email, password, sshkey string) error {
-	form := registerForm{Name: name, Email: email, Password: password, Sshkey: sshkey}
+	form := models.RegisterForm{Name: name, Email: email, Password: password, Sshkey: sshkey}
 	buf, err := json.Marshal(form)
 	if err != nil {
 		return err
@@ -438,8 +439,8 @@ func GetToken() (string, error) {
 	return tokenString, nil
 }
 
-func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
-	tunnel := Tunnel{}
+func GetTunnel(socketID string, tunnelID string) (*models.Tunnel, error) {
+	tunnel := models.Tunnel{}
 	token, err := GetToken()
 	if err != nil {
 		return nil, err
@@ -466,7 +467,7 @@ func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
 	return &tunnel, nil
 }
 
-func GetDeviceAuthorization(sessionToken string) (*SessionTokenForm, error) {
+func GetDeviceAuthorization(sessionToken string) (*models.SessionTokenForm, error) {
 	client := &h.Client{}
 	req, _ := h.NewRequest("GET", apiUrl()+"/device_authorizations", nil)
 	req.Header.Add("x-access-token", sessionToken)
@@ -485,7 +486,7 @@ func GetDeviceAuthorization(sessionToken string) (*SessionTokenForm, error) {
 		return nil, fmt.Errorf("failed to get device_authorization (%d)", resp.StatusCode)
 	}
 
-	var form SessionTokenForm
+	var form models.SessionTokenForm
 	err = json.NewDecoder(resp.Body).Decode(&form)
 	if err != nil {
 		return nil, errors.New("failed to decode device auth response")

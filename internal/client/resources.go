@@ -16,8 +16,8 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	jwt "github.com/golang-jwt/jwt"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/enum"
-	internalhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 )
 
@@ -148,7 +148,7 @@ func ValidateClientToken(token string) (email string, err error) {
 	return userEmail, nil
 }
 
-func FetchResources(token string, filteredTypes ...string) (resources internalhttp.ClientResources, err error) {
+func FetchResources(token string, filteredTypes ...string) (resources models.ClientResources, err error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/resources", apiUrl()), nil)
 	req.Header.Add("x-access-token", token)
 	client := http.Client{
@@ -191,7 +191,7 @@ func FetchResources(token string, filteredTypes ...string) (resources internalht
 	return resources, nil
 }
 
-func FetchResource(token string, name string) (resource internalhttp.ClientResource, err error) {
+func FetchResource(token string, name string) (resource models.ClientResource, err error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/client/resource/%s", apiUrl(), name), nil)
 	req.Header.Add("x-access-token", token)
 	client := http.Client{
@@ -306,7 +306,7 @@ func PickHost(inputHost string, socketTypes ...string) (pickedHost string, err e
 			return
 		}
 
-		var resources internalhttp.ClientResources
+		var resources models.ClientResources
 		resources, err = FetchResources(token, socketTypes...)
 		if err != nil {
 			err = fmt.Errorf("failed fetching client resources: %w", err)

@@ -124,8 +124,8 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 	data := ssh.MarshalAuthorizedKey(pub)
 
 	//post signing request
-	signedCert := mysocketctlhttp.SshCsr{}
-	newCsr := &mysocketctlhttp.SshCsr{
+	signedCert := models.SshCsr{}
+	newCsr := &models.SshCsr{
 		SSHPublicKey: strings.TrimRight(string(data), "\n"),
 	}
 	//log.Println(newCsr)

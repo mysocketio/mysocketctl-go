@@ -28,6 +28,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	jwt "github.com/golang-jwt/jwt"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/cobra"
@@ -77,7 +78,7 @@ var loginCmd = &cobra.Command{
 			for {
 				retriesThreeTimesEveryTwoSeconds := backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 3)
 
-				var token *http.SessionTokenForm
+				var token *models.SessionTokenForm
 				var err error
 
 				err = backoff.Retry(func() error {

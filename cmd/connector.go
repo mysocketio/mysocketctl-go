@@ -5,6 +5,7 @@ import (
 
 	"github.com/mysocketio/mysocketctl-go/internal/connector"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
+	"github.com/mysocketio/mysocketctl-go/internal/logging"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -19,7 +20,7 @@ var connectorStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "start the connector",
 	Run: func(cmd *cobra.Command, args []string) {
-		log, _ := zap.NewProduction()
+		log, _ := logging.BuildProduction()
 		defer log.Sync()
 
 		var configPath string

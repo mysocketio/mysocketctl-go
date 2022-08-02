@@ -118,7 +118,7 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 		return errors.New("no ssh keys found for authenticating")
 	}
 
-	fmt.Println("\nConnecting to Server: " + sshServer() + "\n")
+	c.logger.Info("Connecting to Server", zap.String("server", sshServer()))
 	time.Sleep(1 * time.Second)
 
 	c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
@@ -126,22 +126,22 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 	return errors.New("ssh session disconnected")
 }
 
-func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localssh bool, sshCa string) {
+func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localssh bool, sshCa string) error {
 	remoteHost := net.JoinHostPort(sshServer(), "22")
 
 	defer c.Close()
 	conn, err := proxyDialer.Dial("tcp", remoteHost)
 	if err != nil {
-		log.Printf("Dial INTO remote server error: %s", err)
-		return
+		c.logger.Error("dial into remote server error", zap.Error(err))
+		return err
 	}
 
 	defer conn.Close()
 
 	sshCon, channel, req, err := ssh.NewClientConn(conn, remoteHost, sshConfig)
 	if err != nil {
-		log.Printf("Dial INTO remote server error: %s", err)
-		return
+		c.logger.Error("dial into remote server error", zap.Error(err))
+		return err
 	}
 	defer sshCon.Close()
 
@@ -150,15 +150,15 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 
 	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
 	if err != nil {
-		log.Printf("Listen open port ON remote server on port %d error: %s", tunnel.LocalPort, err)
-		return
+		c.logger.Error("Listen open port ON remote server error", zap.Int("port", tunnel.LocalPort), zap.Error(err))
+		return err
 	}
 	defer listener.Close()
 
 	session, err := sshClient.NewSession()
 	if err != nil {
-		log.Printf("Failed to create session: %v", err)
-		return
+		c.logger.Error("Failed to create session: %v", zap.Error(err))
+		return err
 	}
 	defer session.Close()
 
@@ -166,13 +166,13 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 	modes := ssh.TerminalModes{}
 
 	if err := session.RequestPty("xterm-256color", 80, 40, modes); err != nil {
-		log.Printf("request for pseudo terminal failed: %s", err)
-		return
+		c.logger.Error("request for pseudo terminal failed", zap.Error(err))
+		return err
 	}
 
 	if err := session.Shell(); err != nil {
 		log.Print(err)
-		return
+		return err
 	}
 
 	if localssh {
@@ -183,14 +183,14 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 			for {
 				client, err := listener.Accept()
 				if err != nil {
-					log.Printf("Tunnel Connection accept error: %v", err)
+					c.logger.Error("Tunnel Connection accept error", zap.Error(err))
 					return
 				}
 
 				go func() {
 					local, err := net.Dial("tcp", fmt.Sprintf("%s:%d", targethost, port))
 					if err != nil {
-						log.Printf("Dial INTO local service error: %s", err)
+						c.logger.Error("Dial INTO local service error", zap.Error(err))
 						return
 					}
 
@@ -206,7 +206,6 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 
 	go func(context.Context) {
 		<-ctx.Done()
-		log.Println("Disconnecting from server")
 		session.Close()
 	}(ctx)
 
@@ -214,7 +213,10 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 
 	if err := session.Wait(); err != nil {
 		c.logger.Info("Session exited", zap.String("error", err.Error()))
+		return err
 	}
+
+	return nil
 }
 
 func (c *Connection) Close() {

@@ -69,15 +69,6 @@ func APIURL() string {
 }
 
 func (a *MysocketAPI) Request(method string, url string, target interface{}, data interface{}) error {
-	if a.AccessToken == "" {
-		token, err := mysocketctlhttp.GetToken()
-		if err != nil {
-			return err
-		}
-
-		a.AccessToken = token
-	}
-
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 

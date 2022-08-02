@@ -35,13 +35,11 @@ aws_groups:
     - group: infra_team
       allowed_email_domains: [mysocket.io]
       allowed_email_addresses: [mysocket.io, some-other-domain.com]
-      # private_socket: True
 
 docker_plugin:
     - group: docker_team
       allowed_email_domains: [mysocket.io]
       allowed_email_addresses: [mysocket.io, some-other-domain.com]
-      # private_socket: True
 
 network_plugin:
    - group: network_plugin
@@ -52,11 +50,3 @@ network_plugin:
      - my lan0:
         interfaces: [ eth0 ]
         ports: [ 80, 443, 3306 ]
-     - my lan1_n_subnet:
-        interfaces: [ eth1 ]
-        subnets: [ 172.31.6.0/24 ]
-        ports: [ 80, 443, 3306 ]
-     - my routed_net0:
-        interfaces: [ none ]
-        subnets: [ 172.16.1.0/28, 192.168.100.0/24 ]
-        ports: [ 22, 80, 443, 3306 ]

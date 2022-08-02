@@ -1,15 +1,15 @@
 package config
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParse(t *testing.T) {
 	validConfig := Config{
-		Credentials: Credentials{Username: "", Password: "AVeryLongAndSecurePassword", Token: ""},
+		Credentials: Credentials{User: "my-aweseome-email@mysocket.io", Password: "AVeryLongAndSecurePassword", Token: ""},
 		Connector:   Connector{Name: "my-awesome.connector", AwsRegion: "us-west-2", AwsProfile: ""},
 		Sockets: SocketParams{
 			map[string]SocketConfig{
@@ -52,6 +52,36 @@ func TestParse(t *testing.T) {
 				},
 			},
 		},
+		AwsGroups: []ConnectorGroups{
+			{
+				Group:                 "infra_team",
+				AllowedEmailDomains:   []string{"mysocket.io"},
+				AllowedEmailAddresses: []string{"mysocket.io", "some-other-domain.com"},
+				PrivateSocket:         false,
+			},
+		},
+		DockerPlugin: []ConnectorGroups{
+			{
+				Group:                 "docker_team",
+				AllowedEmailDomains:   []string{"mysocket.io"},
+				AllowedEmailAddresses: []string{"mysocket.io", "some-other-domain.com"},
+				PrivateSocket:         false,
+			},
+		},
+		NetworkPlugin: []NetworkPlugin{
+			{
+				Scan_interval:         300,
+				Group:                 "network_plugin",
+				AllowedEmailDomains:   []string{"mysocket.io"},
+				AllowedEmailAddresses: []string{"mysocket.io", "some-other-domain.com"},
+				Networks: map[string]NetworkPluginNetwork{
+					"my lan0": {
+						Interfaces: []string{"eth0"},
+						Ports:      []uint16{80, 443, 3306},
+					},
+				},
+			},
+		},
 	}
 
 	tests := []struct {
@@ -82,10 +112,7 @@ func TestParse(t *testing.T) {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Parse() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

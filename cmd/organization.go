@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/jedib0t/go-pretty/table"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ var organizationShowCmd = &cobra.Command{
 			log.Fatalf("error: %v", err)
 		}
 
-		org := http.OrganizationInfo{}
+		org := models.Organization{}
 		err = client.Request("GET", "organization", &org, nil)
 		if err != nil {
 			log.Fatalf("error: %v", err)

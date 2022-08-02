@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/mysocketio/mysocketctl-go/internal/ssh"
 	"github.com/spf13/cobra"
@@ -122,7 +123,7 @@ var connectCmd = &cobra.Command{
 			}
 		}
 
-		connection := &http.Socket{
+		connection := &models.Socket{
 			Name:                  name,
 			Description:           description,
 			ProtectedSocket:       protected,
@@ -143,7 +144,7 @@ var connectCmd = &cobra.Command{
 			log.Fatalf("Error: %v", err)
 		}
 
-		c := http.Socket{}
+		c := models.Socket{}
 		err = client.WithVersion(version).Request("POST", "connect", &c, connection)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -177,13 +178,17 @@ var connectCmd = &cobra.Command{
 			localssh = false
 		}
 
-		org := http.OrganizationInfo{}
+		org := models.Organization{}
 		err = client.Request("GET", "organization", &org, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
 
-		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"])
+		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"], "")
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		fmt.Println("cleaning up...")
 		client, err = http.NewClient()
 

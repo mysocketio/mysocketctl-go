@@ -1,0 +1,62 @@
+connector:
+   name: "my-awesome.connector"
+   aws-region: "us-west-2"
+
+credentials:
+   user: my-aweseome-email@mysocket.io
+   password: AVeryLongAndSecurePassword
+
+sockets:
+   - webserver.connector.lab:
+      port: 8000
+      type: http
+      host: 127.0.0.1
+      allowed_email_addresses: [some-email01@domain.com]
+      allowed_email_domains: [mysocket.io, some-other-domain.com]
+
+   - rds.us-east-2:
+       port: 3306
+       host: my-rds-instance.cluster-giberish.us-east-2.rds.amazonaws.com
+       type: database
+       allowed_email_addresses: [some-email01@domain.com]
+       allowed_email_domains: [mysocket.io, some-other-domain.com]
+       upstream_type: mysql
+       upstream_user: fancy_db_user
+       upstream_password: AVeryLongAndSecurePasswordThingyTokenLikeStuff
+
+   - ssh.connector.lab:
+       port: 22
+       host: 127.0.0.1
+       type: ssh
+       allowed_email_addresses: [some-email01@domain.com]
+       allowed_email_domains: [mysocket.io, some-other-domain.com]
+
+aws_groups:
+    - group: infra_team
+      allowed_email_domains: [mysocket.io]
+      allowed_email_addresses: [mysocket.io, some-other-domain.com]
+      # private_socket: True
+
+docker_plugin:
+    - group: docker_team
+      allowed_email_domains: [mysocket.io]
+      allowed_email_addresses: [mysocket.io, some-other-domain.com]
+      # private_socket: True
+
+network_plugin:
+   - group: network_plugin
+     allowed_email_domains: [mysocket.io]
+     allowed_email_addresses: [mysocket.io, some-other-domain.com]
+     scan_interval: 300
+     networks:
+     - my lan0:
+        interfaces: [ eth0 ]
+        ports: [ 80, 443, 3306 ]
+     - my lan1_n_subnet:
+        interfaces: [ eth1 ]
+        subnets: [ 172.31.6.0/24 ]
+        ports: [ 80, 443, 3306 ]
+     - my routed_net0:
+        interfaces: [ none ]
+        subnets: [ 172.16.1.0/28, 192.168.100.0/24 ]
+        ports: [ 22, 80, 443, 3306 ]

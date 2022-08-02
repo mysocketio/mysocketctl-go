@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/jedib0t/go-pretty/table"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 )
@@ -45,13 +46,13 @@ var listOrgs = &cobra.Command{
 		if err != nil {
 			log.Fatalf("error: %v", err)
 		}
-		account := http.Account{}
+		account := models.Account{}
 		err = client.Request("GET", "user/"+*userID, &account, nil)
 		if err != nil {
 			log.Fatalf("error: %v", err)
 		}
 
-		orgs := []http.Organization{}
+		orgs := []models.Organization{}
 		err = client.Request("GET", "organizations/list", &orgs, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -82,13 +83,13 @@ var switchOrg = &cobra.Command{
 	Short: "Switch to a different organization",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		form := http.SwitchOrgRequest{OrgName: orgName}
+		form := models.SwitchOrgRequest{OrgName: orgName}
 
 		client, err := http.NewClient()
 		if err != nil {
 			log.Fatalf("Error: %v", err)
 		}
-		val := &http.SwitchOrgResponse{}
+		val := &models.SwitchOrgResponse{}
 
 		err = client.Request("POST", "users/organizations/switch", val, &form)
 
@@ -153,7 +154,7 @@ var showCmd = &cobra.Command{
 			log.Fatalf("error: %v", err)
 		}
 
-		account := http.Account{}
+		account := models.Account{}
 		err = client.Request("GET", "user/"+*userID, &account, nil)
 		if err != nil {
 			log.Fatalf("error: %v", err)

@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/mysocketio/mysocketctl-go/internal/ssh"
 	"github.com/spf13/cobra"
@@ -47,7 +48,7 @@ var tunnelListCmd = &cobra.Command{
 			log.Fatalf("Error: %v", err)
 		}
 
-		tunnels := []http.Tunnel{}
+		tunnels := []models.Tunnel{}
 		err = client.Request("GET", "socket/"+socketID+"/tunnel", &tunnels, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -103,8 +104,8 @@ var tunnelCreateCmd = &cobra.Command{
 			log.Fatalf("error: %v", err)
 		}
 
-		t := http.Tunnel{}
-		err = client.Request("POST", "socket/"+socketID+"/tunnel", &t, http.Tunnel{})
+		t := models.Tunnel{}
+		err = client.Request("POST", "socket/"+socketID+"/tunnel", &t, models.Tunnel{})
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
@@ -134,7 +135,7 @@ var tunnelConnectCmd = &cobra.Command{
 			log.Fatalf("Error: %v", err)
 		}
 
-		socket := http.Socket{}
+		socket := models.Socket{}
 		err = client.Request("GET", "socket/"+socketID, &socket, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -176,13 +177,16 @@ var tunnelConnectCmd = &cobra.Command{
 			localssh = false
 		}
 
-		org := http.OrganizationInfo{}
+		org := models.Organization{}
 		err = client.Request("GET", "organization", &org, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
 
-		ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"])
+		err = ssh.SshConnect(userIDStr, socketID, tunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"], "")
+		if err != nil {
+			fmt.Println(err)
+		}
 	},
 }
 
@@ -198,7 +202,7 @@ func getTunnels(toComplete string) []string {
 		log.Fatalf("Error: %v", err)
 	}
 
-	tunnels := []http.Tunnel{}
+	tunnels := []models.Tunnel{}
 	err = client.Request("GET", "socket/"+socketID+"/tunnel", &tunnels, nil)
 	if err != nil {
 		log.Fatalf(fmt.Sprintf("Error: %v", err))

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	jwt "github.com/golang-jwt/jwt"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 )
 
 const (
@@ -74,6 +75,24 @@ func NewClient() (*Client, error) {
 	return c, nil
 }
 
+func NewClientWithAccessToken(token string) (*Client, error) {
+	var accessToken string
+
+	if token != "" {
+		accessToken = token
+	} else {
+		token, err := GetToken()
+		if err != nil {
+			return nil, err
+		}
+		accessToken = token
+	}
+
+	c := &Client{token: accessToken}
+
+	return c, nil
+}
+
 func (c *Client) WithVersion(version string) *Client {
 	if version == "" {
 		return c
@@ -81,6 +100,16 @@ func (c *Client) WithVersion(version string) *Client {
 	c2 := new(Client)
 	*c2 = *c
 	c2.version = version
+	return c2
+}
+
+func (c *Client) WithAccessToken(token string) *Client {
+	if token == "" {
+		return c
+	}
+	c2 := new(Client)
+	*c2 = *c
+	c2.token = token
 	return c2
 }
 
@@ -130,8 +159,8 @@ func RefreshLogin() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	loginRefresh := LoginRefresh{}
-	res := TokenForm{}
+	loginRefresh := models.LoginRefresh{}
+	res := models.TokenForm{}
 
 	err = client.Request("POST", "login/refresh", &res, loginRefresh)
 	if err != nil {
@@ -159,8 +188,8 @@ func MFAChallenge(code string) error {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	form := mfaForm{Code: code}
-	res := TokenForm{}
+	form := models.MfaForm{Code: code}
+	res := models.TokenForm{}
 
 	err = c.Request("POST", "users/mfa_challenge", &res, &form)
 	if err != nil {
@@ -227,7 +256,7 @@ func CreateDeviceAuthorization() (string, error) {
 
 func Login(email, password string) (bool, error) {
 	c := &Client{}
-	form := loginForm{Email: email, Password: password}
+	form := models.LoginForm{Email: email, Password: password}
 	buf, err := json.Marshal(form)
 	if err != nil {
 		return false, err
@@ -250,7 +279,7 @@ func Login(email, password string) (bool, error) {
 		return false, errors.New("failed to login")
 	}
 
-	res := TokenForm{}
+	res := models.TokenForm{}
 	json.NewDecoder(resp.Body).Decode(&res)
 
 	c.token = res.Token
@@ -282,7 +311,7 @@ func SaveTokenInDisk(accessToken string) error {
 }
 
 func Register(name, email, password, sshkey string) error {
-	form := registerForm{Name: name, Email: email, Password: password, Sshkey: sshkey}
+	form := models.RegisterForm{Name: name, Email: email, Password: password, Sshkey: sshkey}
 	buf, err := json.Marshal(form)
 	if err != nil {
 		return err
@@ -410,8 +439,8 @@ func GetToken() (string, error) {
 	return tokenString, nil
 }
 
-func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
-	tunnel := Tunnel{}
+func GetTunnel(socketID string, tunnelID string) (*models.Tunnel, error) {
+	tunnel := models.Tunnel{}
 	token, err := GetToken()
 	if err != nil {
 		return nil, err
@@ -438,7 +467,7 @@ func GetTunnel(socketID string, tunnelID string) (*Tunnel, error) {
 	return &tunnel, nil
 }
 
-func GetDeviceAuthorization(sessionToken string) (*SessionTokenForm, error) {
+func GetDeviceAuthorization(sessionToken string) (*models.SessionTokenForm, error) {
 	client := &h.Client{}
 	req, _ := h.NewRequest("GET", apiUrl()+"/device_authorizations", nil)
 	req.Header.Add("x-access-token", sessionToken)
@@ -457,7 +486,7 @@ func GetDeviceAuthorization(sessionToken string) (*SessionTokenForm, error) {
 		return nil, fmt.Errorf("failed to get device_authorization (%d)", resp.StatusCode)
 	}
 
-	var form SessionTokenForm
+	var form models.SessionTokenForm
 	err = json.NewDecoder(resp.Body).Decode(&form)
 	if err != nil {
 		return nil, errors.New("failed to decode device auth response")
@@ -472,6 +501,30 @@ func GetUserID() (*string, *string, error) {
 	}
 
 	token, err := jwt.Parse(tokenStr, nil)
+	if token == nil {
+		return nil, nil, err
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	tokenUserId := fmt.Sprintf("%v", claims["user_id"])
+	userID := strings.ReplaceAll(tokenUserId, "-", "")
+
+	return &userID, &tokenUserId, nil
+}
+
+func GetUserIDFromAccessToken(accessToken string) (*string, *string, error) {
+	var rawToken string
+	if accessToken != "" {
+		rawToken = accessToken
+	} else {
+		tokenStr, err := GetToken()
+		if err != nil {
+			return nil, nil, err
+		}
+		rawToken = tokenStr
+	}
+
+	token, err := jwt.Parse(rawToken, nil)
 	if token == nil {
 		return nil, nil, err
 	}

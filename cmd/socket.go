@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
+	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +45,7 @@ var socketsListCmd = &cobra.Command{
 			log.Fatalf("Error: %v", err)
 		}
 
-		sockets := []http.Socket{}
+		sockets := []models.Socket{}
 		err = client.Request("GET", "connect", &sockets, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -163,8 +164,8 @@ var socketCreateCmd = &cobra.Command{
 			log.Fatalf("error: %v", err)
 		}
 
-		s := http.Socket{}
-		newSocket := &http.Socket{
+		s := models.Socket{}
+		newSocket := &models.Socket{
 			Name:                  name,
 			Description:           description,
 			ProtectedSocket:       protected,
@@ -223,7 +224,7 @@ var socketShowCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("error: %v", err)
 		}
-		socket := http.Socket{}
+		socket := models.Socket{}
 		err = client.Request("GET", "socket/"+socketID, &socket, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
@@ -240,7 +241,7 @@ func getSockets(toComplete string) []string {
 		log.Fatalf("Error: %v", err)
 	}
 
-	sockets := []http.Socket{}
+	sockets := []models.Socket{}
 	err = client.Request("GET", "socket", &sockets, nil)
 	if err != nil {
 		log.Fatalf(fmt.Sprintf("Error: %v", err))

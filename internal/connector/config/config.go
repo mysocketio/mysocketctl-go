@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var ErrInvalidConnectorName = errors.New("invalid connector name")
+
 type SocketConfig struct {
 	Host                  string
 	Port                  int
@@ -103,9 +105,11 @@ type Config struct {
 func (c *Config) Validate() error {
 	if c.Connector.Name == "" {
 		return fmt.Errorf("connector.name is required")
-	} else {
-		return validateName(c.Connector.Name)
+	} else if validateName(c.Connector.Name) != nil {
+		return ErrInvalidConnectorName
 	}
+
+	return nil
 }
 
 func validateName(name string) error {

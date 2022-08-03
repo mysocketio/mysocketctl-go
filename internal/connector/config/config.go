@@ -2,9 +2,11 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,6 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/spf13/viper"
 )
+
+var ErrInvalidConnectorName = errors.New("invalid connector name")
 
 type SocketConfig struct {
 	Host                  string
@@ -96,6 +100,25 @@ type Config struct {
 	DockerPlugin  []ConnectorGroups `mapstructure:"docker_plugin"`
 	NetworkPlugin []NetworkPlugin   `mapstructure:"network_plugin"`
 	K8Plugin      []K8Plugin        `mapstructure:"k8_plugin"`
+}
+
+func (c *Config) Validate() error {
+	if c.Connector.Name == "" {
+		return fmt.Errorf("connector.name is required")
+	} else if validateName(c.Connector.Name) != nil {
+		return ErrInvalidConnectorName
+	}
+
+	return nil
+}
+
+func validateName(name string) error {
+	re := regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,198}[a-zA-Z0-9])?$`)
+	if !re.Match([]byte(name)) {
+		return errors.New("invalid name")
+	}
+
+	return nil
 }
 
 func NewConfig() *Config {
@@ -206,7 +229,6 @@ func StartSSMSession(cfg *Config) (ssmiface.SSMAPI, error) {
 			Region: &cfg.Connector.SSMAwsRegion,
 		},
 	})
-	log.Printf("loading the ssm with: %s %s", cfg.Connector.AwsProfile, cfg.Connector.SSMAwsRegion)
 
 	if err != nil {
 		log.Printf("failed to create aws session: %v", err)

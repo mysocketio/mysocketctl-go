@@ -42,6 +42,12 @@ func WithAccessToken(accessToken string) APIOption {
 	}
 }
 
+func WithVersion(version string) APIOption {
+	return func(h *MysocketAPI) {
+		h.Version = version
+	}
+}
+
 type MysocketAPI struct {
 	AccessToken string
 	Version     string

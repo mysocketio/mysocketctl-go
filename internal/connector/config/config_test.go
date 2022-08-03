@@ -116,3 +116,29 @@ func TestParse(t *testing.T) {
 		})
 	}
 }
+
+func TestConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *Config
+		wantErr error
+	}{
+		{
+			name:    "valid_config",
+			cfg:     &Config{Connector: Connector{Name: "my-awesome-connector"}},
+			wantErr: nil,
+		},
+		{
+			name:    "invalid_name",
+			cfg:     &Config{Connector: Connector{Name: "my awesome/connector.lab.mysocket.io"}},
+			wantErr: ErrInvalidConnectorName,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+
+			assert.Equal(t, tt.wantErr, err)
+		})
+	}
+}

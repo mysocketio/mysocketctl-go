@@ -13,6 +13,8 @@ func BuildProduction() (*zap.Logger, error) {
 	logLevel := zapcore.Level(fetchLogLevelByEnv())
 	c := zap.NewProductionConfig()
 	c.Level = zap.NewAtomicLevelAt(logLevel)
+	c.EncoderConfig.StacktraceKey = ""
+	c.EncoderConfig.CallerKey = ""
 
 	log, err := c.Build()
 	if err != nil {

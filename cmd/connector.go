@@ -38,6 +38,10 @@ var connectorStartCmd = &cobra.Command{
 			log.Fatal("failed to parse config", zap.String("error", err.Error()))
 		}
 
+		if err := cfg.Validate(); err != nil {
+			log.Fatal("failed to validate config", zap.String("error", err.Error()))
+		}
+
 		svc, err := config.StartSSMSession(cfg)
 		if err != nil {
 			log.Error("failed to start ssm session", zap.String("error", err.Error()))
@@ -49,7 +53,7 @@ var connectorStartCmd = &cobra.Command{
 			}
 		}
 
-		if err := connector.NewConnectorService(*cfg, log).Start(); err != nil {
+		if err := connector.NewConnectorService(*cfg, log, version).Start(); err != nil {
 			log.Error("failed to start connector", zap.String("error", err.Error()))
 		}
 	},
@@ -59,7 +63,7 @@ var connectorStopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "stop the connector",
 	Run: func(cmd *cobra.Command, args []string) {
-		connector.NewConnectorService(*config.NewConfig(), nil).Stop()
+		connector.NewConnectorService(*config.NewConfig(), nil, "").Stop()
 	},
 }
 

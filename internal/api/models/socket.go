@@ -76,7 +76,10 @@ type Socket struct {
 }
 
 func (s *Socket) SanitizeName() {
-	s.Name = strings.Replace(s.Name, ".", "-", -1)
+	socketName := strings.Replace(s.Name, ".", "-", -1)
+	socketName = strings.Replace(socketName, " ", "-", -1)
+	socketName = strings.Replace(socketName, ".", "-", -1)
+	s.Name = strings.Replace(socketName, "_", "-", -1)
 }
 
 func (s *Socket) BuildConnectorData(connectorName string) {

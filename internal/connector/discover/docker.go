@@ -149,7 +149,10 @@ func (s *DockerFinder) parseLabels(label string) SocketData {
 		label = strings.TrimSpace(label)
 		if strings.Contains(label, "=") {
 			kv := strings.Split(label, "=")
-			labels[kv[0]] = kv[1]
+			if len(kv) >= 1 {
+				labels[kv[0]] = kv[1]
+			}
+
 		}
 	}
 

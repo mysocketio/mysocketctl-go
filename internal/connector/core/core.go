@@ -101,7 +101,7 @@ func (c *ConnectorCore) HandleUpdates(ctx context.Context, sockets []models.Sock
 	sockets, err := c.SocketsCoreHandler(ctx, sockets)
 	if err != nil {
 		log.Printf("failed to check new sockets: %v", err)
-		return nil
+		return err
 	}
 
 	for _, socket := range sockets {
@@ -155,7 +155,7 @@ func (c *ConnectorCore) DiscoverNewSocketChanges(ctx context.Context, ch chan []
 
 	sockets, err := c.discovery.Find(ctx, c.cfg, c.discoverState)
 	if err != nil {
-		c.logger.Error("error discovering new sockets", zap.String("error", err.Error()))
+		c.logger.Error("error discovering new sockets", zap.Error(err))
 		return
 	}
 

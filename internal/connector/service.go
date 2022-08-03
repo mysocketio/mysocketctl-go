@@ -21,12 +21,13 @@ import (
 )
 
 type ConnectorService struct {
-	cfg    config.Config
-	logger *zap.Logger
+	cfg     config.Config
+	logger  *zap.Logger
+	version string
 }
 
-func NewConnectorService(cfg config.Config, logger *zap.Logger) *ConnectorService {
-	return &ConnectorService{cfg, logger}
+func NewConnectorService(cfg config.Config, logger *zap.Logger, version string) *ConnectorService {
+	return &ConnectorService{cfg, logger, version}
 }
 
 func (c *ConnectorService) Start() error {
@@ -42,6 +43,8 @@ func (c *ConnectorService) Start() error {
 
 	//login with accesstoken or username and password
 	mysocketAPI.With(api.WithAccessToken(accessToken))
+	//setup the version for mysocketctl
+	mysocketAPI.With(api.WithVersion(c.version))
 
 	var plugins []discover.Discover
 	if len(c.cfg.AwsGroups) > 0 {
@@ -54,7 +57,7 @@ func (c *ConnectorService) Start() error {
 		})
 
 		if err != nil {
-			fmt.Println("Error creating aws session:", err)
+			c.logger.Error("error creating the aws session", zap.Error(err))
 		}
 
 		if sess != nil {

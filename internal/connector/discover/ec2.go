@@ -140,7 +140,7 @@ func parseAwsDataTag(tag string) Ec2SocketData {
 	for _, field := range fields {
 		keyAndValue := strings.Split(field, "=")
 
-		if len(keyAndValue) >= 1 {
+		if len(keyAndValue) >= 2 {
 			data[keyAndValue[0]] = keyAndValue[1]
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/mysocketio/mysocketctl-go/internal/api"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	mysocketctlhttp "github.com/mysocketio/mysocketctl-go/internal/http"
@@ -20,16 +21,31 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-type Connection struct {
-	session  *ssh.Session
-	logger   *zap.Logger
-	socketID string
-	tunnelID string
-	closed   bool
+type ConnectionOption func(*Connection)
+
+func WithRetry(numOfRetry int) ConnectionOption {
+	return func(h *Connection) {
+		h.numOfRetry = numOfRetry
+	}
 }
 
-func NewConnection(logger *zap.Logger) *Connection {
-	return &Connection{logger: logger}
+type Connection struct {
+	session    *ssh.Session
+	logger     *zap.Logger
+	socketID   string
+	tunnelID   string
+	closed     bool
+	numOfRetry int
+}
+
+func NewConnection(logger *zap.Logger, opts ...ConnectionOption) *Connection {
+	connection := &Connection{logger: logger}
+
+	for _, opt := range opts {
+		opt(connection)
+	}
+
+	return connection
 }
 
 func (c *Connection) Connect(ctx context.Context, userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string, accessToken string) error {
@@ -121,7 +137,14 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 	c.logger.Info("Connecting to Server", zap.String("server", sshServer()))
 	time.Sleep(1 * time.Second)
 
-	c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+	retriesThreeTimesEveryTwoSeconds := backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), uint64(c.numOfRetry))
+	err = backoff.Retry(func() error {
+		return c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+	}, retriesThreeTimesEveryTwoSeconds)
+
+	if err != nil {
+		return fmt.Errorf("error connecting to server: %v", err)
+	}
 
 	return errors.New("ssh session disconnected")
 }

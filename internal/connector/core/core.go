@@ -38,7 +38,7 @@ type ConnectorCore struct {
 
 func NewConnectorCore(logger *zap.Logger, cfg config.Config, discovery discover.Discover, mysocketAPI api.API) *ConnectorCore {
 	connectedTunnels := &SyncMap{}
-	connectChan := make(chan connectTunnelData, 1)
+	connectChan := make(chan connectTunnelData, 5)
 	discoverState := discover.DiscoverState{
 		State:     make(map[string]interface{}),
 		RunsCount: 0,
@@ -59,7 +59,7 @@ func (c *ConnectorCore) IsSocketConnected(key string) bool {
 }
 
 func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket) error {
-	session := ssh.NewConnection(c.logger)
+	session := ssh.NewConnection(c.logger, ssh.WithRetry(3))
 	c.connectedTunnels.m.Store(socket.ConnectorData.Key(), session)
 
 	// improve the error handling

@@ -74,13 +74,14 @@ func APIURL() string {
 	}
 }
 
-func (a *MysocketAPI) Request(method string, url string, target interface{}, data interface{}) error {
+func (a *MysocketAPI) Request(method string, url string, target interface{}, data interface{}, requireAccessToken bool) error {
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
 	req, _ := http.NewRequest(method, fmt.Sprintf("%s/%s", APIURL(), url), body)
 
-	if a.AccessToken == "" {
+	//try to find the token in the environment
+	if requireAccessToken && a.AccessToken == "" {
 		token, _ := mysocketctlhttp.GetToken()
 
 		a.AccessToken = token
@@ -142,7 +143,7 @@ func (a *MysocketAPI) With(opt APIOption) *MysocketAPI {
 func (a *MysocketAPI) GetOrganizationInfo(ctx context.Context) (*models.Organization, error) {
 	org := models.Organization{}
 
-	err := a.Request("GET", "organization", &org, nil)
+	err := a.Request("GET", "organization", &org, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +154,7 @@ func (a *MysocketAPI) GetOrganizationInfo(ctx context.Context) (*models.Organiza
 func (a *MysocketAPI) GetSockets(ctx context.Context) ([]models.Socket, error) {
 	sockets := []models.Socket{}
 
-	err := a.Request("GET", "socket", &sockets, nil)
+	err := a.Request("GET", "socket", &sockets, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +165,7 @@ func (a *MysocketAPI) GetSockets(ctx context.Context) ([]models.Socket, error) {
 func (a *MysocketAPI) GetSocket(ctx context.Context, socketID string) (*models.Socket, error) {
 	socket := models.Socket{}
 
-	err := a.Request("GET", fmt.Sprintf("socket/%v", socketID), &socket, nil)
+	err := a.Request("GET", fmt.Sprintf("socket/%v", socketID), &socket, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +176,7 @@ func (a *MysocketAPI) GetSocket(ctx context.Context, socketID string) (*models.S
 func (a *MysocketAPI) GetTunnel(ctx context.Context, socketID string, tunnelID string) (*models.Tunnel, error) {
 	tunnel := models.Tunnel{}
 
-	err := a.Request("GET", fmt.Sprintf("/socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil)
+	err := a.Request("GET", fmt.Sprintf("/socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +187,7 @@ func (a *MysocketAPI) GetTunnel(ctx context.Context, socketID string, tunnelID s
 func (a *MysocketAPI) CreateSocket(ctx context.Context, socket *models.Socket) (*models.Socket, error) {
 	s := models.Socket{}
 
-	err := a.Request("POST", "socket", &s, socket)
+	err := a.Request("POST", "socket", &s, socket, true)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +199,7 @@ func (a *MysocketAPI) CreateTunnel(ctx context.Context, socketID string) (*model
 	t := models.Tunnel{}
 
 	url := fmt.Sprintf("socket/%v/tunnel", socketID)
-	err := a.Request("POST", url, &t, nil)
+	err := a.Request("POST", url, &t, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +208,7 @@ func (a *MysocketAPI) CreateTunnel(ctx context.Context, socketID string) (*model
 }
 
 func (a *MysocketAPI) DeleteSocket(ctx context.Context, socketID string) error {
-	err := a.Request("DELETE", "socket/"+socketID, nil, nil)
+	err := a.Request("DELETE", "socket/"+socketID, nil, nil, true)
 	if err != nil {
 		return err
 	}
@@ -218,7 +219,7 @@ func (a *MysocketAPI) DeleteSocket(ctx context.Context, socketID string) error {
 func (a *MysocketAPI) UpdateSocket(ctx context.Context, socketID string, socket models.Socket) error {
 	var result models.Socket
 
-	err := a.Request("PUT", "socket/"+socketID, &result, &socket)
+	err := a.Request("PUT", "socket/"+socketID, &result, &socket, true)
 	if err != nil {
 		return err
 	}
@@ -230,7 +231,7 @@ func (a *MysocketAPI) Login(email, password string) (*models.LoginResponse, erro
 	form := &models.LoginRequest{Email: email, Password: password}
 
 	loginResponse := models.LoginResponse{}
-	err := a.Request("POST", "login", &loginResponse, form)
+	err := a.Request("POST", "login", &loginResponse, form, false)
 	if err != nil {
 		return nil, err
 	}

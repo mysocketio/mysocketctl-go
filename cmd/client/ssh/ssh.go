@@ -64,6 +64,15 @@ var sshCmd = &cobra.Command{
 			}
 		}
 
+		if sshLoginName == "" {
+			sshLoginName = os.Getenv("USER")
+			if sshLoginName == "" {
+				return errors.New("falied to get login/username, empty login not allowed")
+			} else {
+				fmt.Printf("No login or username argument specified, using current user: %s\n", sshLoginName)
+			}
+		}
+
 		hostname, err := client.PickHost(hostname, enum.SSHSocket, enum.TLSSocket)
 		if err != nil {
 			return err

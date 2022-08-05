@@ -19,14 +19,15 @@ import (
 )
 
 var (
-	hostname string
-	username string
+	hostname     string
+	sshLoginName string
 )
 
 func AddCommandsTo(client *cobra.Command) {
 	client.AddCommand(sshCmd)
 	sshCmd.Flags().StringVarP(&hostname, "host", "", "", "The ssh mysocket target host")
-	sshCmd.Flags().StringVarP(&username, "username", "", "", "Specifies the user to log in as on the remote machine")
+	sshCmd.Flags().StringVarP(&sshLoginName, "username", "u", "", "Specifies the user to log in as on the remote machine(deprecated)")
+	sshCmd.Flags().StringVarP(&sshLoginName, "login", "l", "", "Same as username, specifies the user login to use on remote machine")
 
 	client.AddCommand(keySignCmd)
 	keySignCmd.Flags().StringVarP(&hostname, "host", "", "", "The mysocket target host")
@@ -45,13 +46,18 @@ var sshCmd = &cobra.Command{
 			case 1:
 				hostname = hostnameSlice[0]
 			case 2:
-				username = hostnameSlice[0]
+				sshLoginName = hostnameSlice[0]
 				hostname = hostnameSlice[1]
 			}
 		}
 
-		if username == "" {
-			return errors.New("empty username not allowed")
+		if sshLoginName == "" {
+			sshLoginName = os.Getenv("USER")
+			if sshLoginName == "" {
+				return errors.New("falied to get login/username, empty login not allowed")
+			} else {
+				fmt.Printf("No login or username argument specified, using current user: %s\n", sshLoginName)
+			}
 		}
 
 		hostname, err := client.PickHost(hostname, enum.SSHSocket, enum.TLSSocket)
@@ -118,13 +124,13 @@ var sshCmd = &cobra.Command{
 		}
 
 		sshConfig := &ssh.ClientConfig{
-			User:            username,
+			User:            sshLoginName,
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 			Timeout:         10 * time.Second,
 			Auth:            []ssh.AuthMethod{ssh.PublicKeys(certSigner)},
 		}
 
-		fmt.Printf("\nConnecting to Server: %s:%d\n", hostname, port)
+		fmt.Printf("\nConnecting to Server: %s:%d as %s \n", hostname, port, sshLoginName)
 		serverConn, chans, reqs, err := ssh.NewClientConn(conn, hostname, sshConfig)
 		if err != nil {
 			return fmt.Errorf("dial into remote server error: %s %+v", err, conn.ConnectionState())

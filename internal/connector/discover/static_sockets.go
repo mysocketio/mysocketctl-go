@@ -19,10 +19,8 @@ func (s *StaticSocketFinder) SkipRun(ctx context.Context, cfg config.Config, sta
 
 func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
 	time.Sleep(30 * time.Second)
+
 	sockets := []models.Socket{}
-
-	time.Sleep(5 * time.Second)
-
 	for _, socketMap := range cfg.Sockets {
 		socket := models.Socket{}
 

@@ -21,6 +21,9 @@ import (
 	"golang.org/x/net/proxy"
 )
 
+var ErrListenOnPort = errors.New("failed to listen on tcp port")
+var ErrSessionDisconnected = errors.New("session disconnected")
+
 type ConnectionOption func(*Connection)
 
 func WithRetry(numOfRetry int) ConnectionOption {
@@ -139,7 +142,15 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 		c.logger.Info("Connecting to Server", zap.String("server", sshServer()))
 		time.Sleep(1 * time.Second)
 
-		return c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+		err = c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+		if err != nil {
+			// abort retry when session is disconnected or it's already connected in the tcp port
+			if errors.Is(err, ErrListenOnPort) || errors.Is(err, ErrSessionDisconnected) {
+				return nil
+			}
+		}
+
+		return err
 	}, retriesThreeTimesEveryTwoSeconds)
 
 	if err != nil {
@@ -174,7 +185,7 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
 	if err != nil {
 		c.logger.Error("Listen open port ON remote server error", zap.Int("port", tunnel.LocalPort), zap.Error(err))
-		return err
+		return ErrListenOnPort
 	}
 	defer listener.Close()
 
@@ -236,7 +247,7 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 
 	if err := session.Wait(); err != nil {
 		c.logger.Info("Session exited", zap.String("error", err.Error()))
-		return err
+		return ErrSessionDisconnected
 	}
 
 	return nil

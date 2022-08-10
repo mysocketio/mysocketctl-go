@@ -176,7 +176,7 @@ func (a *MysocketAPI) GetSocket(ctx context.Context, socketID string) (*models.S
 func (a *MysocketAPI) GetTunnel(ctx context.Context, socketID string, tunnelID string) (*models.Tunnel, error) {
 	tunnel := models.Tunnel{}
 
-	err := a.Request("GET", fmt.Sprintf("/socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil, true)
+	err := a.Request("GET", fmt.Sprintf("socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil, true)
 	if err != nil {
 		return nil, err
 	}

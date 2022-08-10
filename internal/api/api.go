@@ -78,7 +78,7 @@ func (a *MysocketAPI) Request(method string, url string, target interface{}, dat
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
-	req, _ := http.NewRequest(method, fmt.Sprintf("%s%s", APIURL(), url), body)
+	req, _ := http.NewRequest(method, fmt.Sprintf("%s/%s", APIURL(), url), body)
 
 	//try to find the token in the environment
 	if requireAccessToken && a.AccessToken == "" {
@@ -176,7 +176,7 @@ func (a *MysocketAPI) GetSocket(ctx context.Context, socketID string) (*models.S
 func (a *MysocketAPI) GetTunnel(ctx context.Context, socketID string, tunnelID string) (*models.Tunnel, error) {
 	tunnel := models.Tunnel{}
 
-	err := a.Request("GET", fmt.Sprintf("/socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil, true)
+	err := a.Request("GET", fmt.Sprintf("socket/%v/tunnel/%v", socketID, tunnelID), &tunnel, nil, true)
 	if err != nil {
 		return nil, err
 	}

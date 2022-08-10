@@ -117,28 +117,28 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 		proxyDialer = proxy.Direct
 	}
 
-	// Let's fetch a short lived signed cert from api.mysocket.io
-	// We'll use that to authenticate. This returns a signer object.
-	// for now we'll just add it to the signers list.
-	// In future, this is the only auth method we should use.
-	sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken)
-	if err != nil {
-		return ErrFailedToGetSshCert
-	}
-	// If we got a cert, we use that for auth method. Otherwise use static keys
-	if sshCert != nil {
-		sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(sshCert)}
-	} else if signers != nil {
-		sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signers...)}
-	} else {
-		return errors.New("no ssh keys found for authenticating")
-	}
-
-	c.logger.Info("Connecting to Server", zap.String("server", sshServer()))
-	time.Sleep(1 * time.Second)
-
 	retriesThreeTimesEveryTwoSeconds := backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), uint64(c.numOfRetry))
 	err = backoff.Retry(func() error {
+		// Let's fetch a short lived signed cert from api.mysocket.io
+		// We'll use that to authenticate. This returns a signer object.
+		// for now we'll just add it to the signers list.
+		// In future, this is the only auth method we should use.
+		sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken, 1)
+		if err != nil {
+			return ErrFailedToGetSshCert
+		}
+		// If we got a cert, we use that for auth method. Otherwise use static keys
+		if sshCert != nil {
+			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(sshCert)}
+		} else if signers != nil {
+			sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signers...)}
+		} else {
+			return errors.New("no ssh keys found for authenticating")
+		}
+
+		c.logger.Info("Connecting to Server", zap.String("server", sshServer()))
+		time.Sleep(1 * time.Second)
+
 		return c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
 	}, retriesThreeTimesEveryTwoSeconds)
 

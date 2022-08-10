@@ -78,7 +78,7 @@ func (a *MysocketAPI) Request(method string, url string, target interface{}, dat
 	jv, _ := json.Marshal(data)
 	body := bytes.NewBuffer(jv)
 
-	req, _ := http.NewRequest(method, fmt.Sprintf("%s/%s", APIURL(), url), body)
+	req, _ := http.NewRequest(method, fmt.Sprintf("%s%s", APIURL(), url), body)
 
 	//try to find the token in the environment
 	if requireAccessToken && a.AccessToken == "" {

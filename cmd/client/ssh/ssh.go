@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/moby/term"
+	"github.com/mysocketio/mysocketctl-go/client/preference"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
 	"github.com/mysocketio/mysocketctl-go/internal/enum"
 	mysocketSSH "github.com/mysocketio/mysocketctl-go/internal/ssh"
@@ -22,6 +24,17 @@ var (
 	hostname     string
 	sshLoginName string
 )
+
+type HostDB struct {
+	Hosts []Host `json:"hosts"`
+}
+
+type Host struct {
+	DNSname    string    `json:"dnsname"`
+	Username   string    `json:"username"`
+	LastUsed   time.Time `json:"lastused"`
+	SocketType string    `json:"sockettype"`
+}
 
 func AddCommandsTo(client *cobra.Command) {
 	client.AddCommand(sshCmd)
@@ -51,13 +64,6 @@ var sshCmd = &cobra.Command{
 			}
 		}
 
-		if sshLoginName == "" {
-			sshLoginName = os.Getenv("USER")
-			if sshLoginName == "" {
-				return errors.New("falied to get login/username, empty login not allowed")
-			}
-		}
-
 		hostname, err := client.PickHost(hostname, enum.SSHSocket, enum.TLSSocket)
 		if err != nil {
 			return err
@@ -67,8 +73,37 @@ var sshCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-
 		orgID := fmt.Sprint(claims["org_id"])
+
+		pref, err := preference.Read()
+		if err != nil {
+			fmt.Println("WARNING: could not read preference file:", err)
+		}
+		socketPref := preference.NewSSHSocket(hostname)
+
+		if sshLoginName == "" {
+			suggestedSocket := pref.Socket(hostname)
+			if preference.Found(suggestedSocket) {
+				sshLoginName = suggestedSocket.Username
+				socketPref = suggestedSocket
+			} else {
+				suggestedSocket = pref.SuggestSocket(hostname, enum.SSHSocket)
+				if preference.Found(suggestedSocket) {
+					sshLoginName = suggestedSocket.Username
+					socketPref = suggestedSocket
+				}
+				if err = survey.AskOne(&survey.Input{
+					Message: "SSH username:",
+					Default: sshLoginName,
+				}, &sshLoginName); err != nil {
+					return errors.New("failed to get login/username, empty login not allowed")
+				}
+			}
+		}
+
+		// Now we should have the login name, so lets write back the data to the preference file
+		socketPref.Username = sshLoginName
+		pref.SetSocket(socketPref)
 
 		sshCert, err := client.GenSSHKey(token, orgID, hostname)
 		if err != nil {
@@ -142,6 +177,11 @@ var sshCmd = &cobra.Command{
 			return fmt.Errorf("failed to create session: %w", err)
 		}
 		defer session.Close()
+
+		// persist logged in username
+		if err := preference.Write(pref); err != nil {
+			fmt.Println("WARNING: could not update preference file:", err)
+		}
 
 		fd := os.Stdin.Fd()
 

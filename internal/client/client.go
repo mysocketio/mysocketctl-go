@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -686,4 +687,15 @@ func TermSize(fd uintptr) []byte {
 	binary.BigEndian.PutUint32(size[4:], uint32(winsize.Height))
 
 	return size
+}
+
+func OnInterruptDo(action func()) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		defer signal.Stop(sigChan)
+		<-sigChan
+		action()
+		os.Exit(1)
+	}()
 }

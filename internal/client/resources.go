@@ -93,7 +93,7 @@ func IsExistingClientTokenValid(homeDir string) (valid bool, token, email string
 		err = fmt.Errorf("couldn't get client token: %w", err)
 		return
 	}
-	email, err = ValidateClientToken(token)
+	email, _, err = ValidateClientToken(token)
 	return (err == nil), token, email, err
 }
 
@@ -125,27 +125,29 @@ func ClientTokenFile(homedir string) string {
 	return tokenfile
 }
 
-func ValidateClientToken(token string) (email string, err error) {
-	userEmail := ""
+func ValidateClientToken(token string) (email string, claims jwt.MapClaims, err error) {
 	parsedJWT, err := jwt.Parse(token, nil)
 	if parsedJWT == nil {
-		return userEmail, fmt.Errorf("couldn't parse token: %v", err.Error())
+		err = fmt.Errorf("couldn't parse token: %w", err)
+		return
 	}
 
-	claims := parsedJWT.Claims.(jwt.MapClaims)
+	claims = parsedJWT.Claims.(jwt.MapClaims)
 	if _, ok := claims["user_email"]; ok {
-		userEmail = claims["user_email"].(string)
+		email = claims["user_email"].(string)
 	} else {
-		return userEmail, fmt.Errorf("can't find claim for user_email")
+		err = fmt.Errorf("can't find claim for user_email")
+		return
 	}
 
 	now := time.Now().Unix()
 	if !claims.VerifyExpiresAt(now, false) {
 		exp := claims["exp"].(float64)
 		delta := time.Unix(now, 0).Sub(time.Unix(int64(exp), 0))
-		return userEmail, fmt.Errorf("token Expired. token for %s expired %v ago", userEmail, delta)
+		err = fmt.Errorf("token expired: token for %s expired %v ago", email, delta)
+		return
 	}
-	return userEmail, nil
+	return email, claims, nil
 }
 
 func FetchResources(token string, filteredTypes ...string) (resources models.ClientResources, err error) {
@@ -221,25 +223,6 @@ func FetchResource(token string, name string) (resource models.ClientResource, e
 	return resource, nil
 }
 
-func PickHostAndEnterDBName(inputHost, inputDBName string) (pickedHost, enteredDBName string, err error) {
-	pickedHost, err = PickHost(inputHost, enum.DatabaseSocket)
-	if err != nil {
-		return
-	}
-
-	enteredDBName = inputDBName
-	if enteredDBName == "" {
-		if err = survey.AskOne(&survey.Input{
-			Message: "what is the name of the database schema:",
-		}, &enteredDBName); err != nil {
-			err = fmt.Errorf("couldn't capture database input: %w", err)
-			return
-		}
-	}
-
-	return pickedHost, enteredDBName, nil
-}
-
 func ReadTokenOrAskToLogIn() (token string, err error) {
 	var valid bool
 	valid, token, _, err = IsExistingClientTokenValid("")
@@ -295,6 +278,21 @@ func AutocompleteHost(cmd *cobra.Command, args []string, toComplete string) ([]s
 	}
 
 	return hosts, cobra.ShellCompDirectiveNoFileComp
+}
+
+func EnterDBName(inputDBName, suggestedDBname string) (enteredDBName string, err error) {
+	enteredDBName = inputDBName
+	if enteredDBName == "" {
+		if err = survey.AskOne(&survey.Input{
+			Message: "what is the name of the database schema:",
+			Default: suggestedDBname,
+		}, &enteredDBName); err != nil {
+			err = fmt.Errorf("couldn't capture database input: %w", err)
+			return
+		}
+	}
+
+	return enteredDBName, nil
 }
 
 func PickHost(inputHost string, socketTypes ...string) (pickedHost string, err error) {

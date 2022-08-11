@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/mysocketio/mysocketctl-go/client/preference"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
+	"github.com/mysocketio/mysocketctl-go/internal/enum"
 	"github.com/spf13/cobra"
 )
 
@@ -37,20 +39,43 @@ var dbCmd = &cobra.Command{
 	Use:   "db",
 	Short: "Pick a socket host and connect to it as a database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var (
-			dbName string
-			err    error
-		)
-		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		var err error
+		hostname, err = client.PickHost(hostname, enum.DatabaseSocket)
+		if err != nil {
+			return err
+		}
+
+		// Let's read preferences from the config file
+		pref, err := preference.Read()
+		if err != nil {
+			fmt.Println("WARNING: could not read preference file:", err)
+		}
+
+		var suggestedDBName, suggestedDBClient string
+
+		dbName := dbNameFrom(args)
+		if dbName == "" {
+			suggestedSocket := pref.GetOrSuggestSocket(hostname, enum.DatabaseSocket)
+			if preference.Found(suggestedSocket) {
+				suggestedDBName = suggestedSocket.DatabaseName
+				suggestedDBClient = suggestedSocket.DatabaseClient
+			}
+		}
+
+		dbName, err = client.EnterDBName(dbName, suggestedDBName)
 		if err != nil {
 			return err
 		}
 
 		var dbClient string
-		if err := survey.AskOne(&survey.Select{
+		prompt := &survey.Select{
 			Message: "choose a client:",
 			Options: []string{"mysql", "mysqlworkbench", "mycli", "dbeaver"},
-		}, &dbClient); err != nil {
+		}
+		if suggestedDBClient != "" {
+			prompt.Default = suggestedDBClient
+		}
+		if err := survey.AskOne(prompt, &dbClient); err != nil {
 			return err
 		}
 
@@ -62,6 +87,9 @@ var dbCmd = &cobra.Command{
 		if len(args) == 0 && dbName != "" {
 			args = append(args, dbName)
 		}
+
+		// no need to persist perference in this function because it will be done
+		// in foundCmd before return or when os.Interrupt signal is caught there
 		return foundCmd.RunE(foundCmd, args)
 	},
 }

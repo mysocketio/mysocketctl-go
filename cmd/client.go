@@ -28,8 +28,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/txn2/txeh"
 
+	"github.com/mysocketio/mysocketctl-go/client/preference"
 	"github.com/mysocketio/mysocketctl-go/cmd/client/db"
 	"github.com/mysocketio/mysocketctl-go/cmd/client/hosts"
 	"github.com/mysocketio/mysocketctl-go/cmd/client/ssh"
@@ -156,9 +158,45 @@ var clientLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login and get API token so service can authenticate",
 	Run: func(cmd *cobra.Command, args []string) {
-		_, _, err := client.Login(orgID)
+		if orgID == "" {
+			pref, err := preference.Read()
+			if err != nil {
+				fmt.Println("WARNING: could not read preference file:", err)
+			}
+			subdomains := pref.RecentlyUsedOrgs(5).Subdomains()
+
+			if len(subdomains) == 1 {
+				orgID = subdomains[0]
+				fmt.Println("Logging into", orgID, "org...")
+			} else if len(subdomains) > 0 {
+				if err := survey.AskOne(&survey.Select{
+					Message: "choose an org:",
+					Options: subdomains,
+				}, &orgID, survey.WithValidator(survey.Required)); err != nil {
+					fmt.Println("failed to read input:", err)
+					return
+				}
+			}
+
+			if orgID == "" {
+				if err = survey.AskOne(&survey.Input{
+					Message: "enter an org subdomain:",
+				}, &orgID, survey.WithValidator(survey.Required)); err != nil {
+					fmt.Println("failed to read input:", err)
+					return
+				}
+			}
+		}
+
+		_, claims, err := client.Login(orgID)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		// read preference file and write logged in org info back to preference file
+		id, subdomain := fmt.Sprint(claims["org_id"]), fmt.Sprint(claims["org_subdomain"])
+		if err := preference.CreateOrUpdate(id, subdomain); err != nil {
+			fmt.Println(err)
 		}
 
 		fmt.Println("Login successful")
@@ -419,7 +457,6 @@ func init() {
 	clientCmd.AddCommand(clientLoginCmd)
 	clientLoginCmd.Flags().StringVarP(&orgID, "org", "", "", "The mysocket organization domain name (without .edge.mysocket.io)")
 	clientLoginCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
-	clientLoginCmd.MarkFlagRequired("org")
 
 	clientLoginCmd.AddCommand(clientLoginStatusCmd)
 

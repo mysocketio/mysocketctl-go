@@ -55,7 +55,7 @@ func sshServer() string {
 	}
 }
 
-func getSshCert(userId string, socketID string, tunnelID string, accessToken string) (s ssh.Signer, err error) {
+func getSshCert(userId string, socketID string, tunnelID string, accessToken string, numOfRetry int) (s ssh.Signer, err error) {
 
 	// First check if we already have a mysocket key pair
 
@@ -135,7 +135,7 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 	}
 	//err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= numOfRetry; i++ {
 		err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
 		if err == nil {
 			break
@@ -239,7 +239,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		// We'll use that to authenticate. This returns a signer object.
 		// for now we'll just add it to the signers list.
 		// In future, this is the only auth method we should use.
-		sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken)
+		sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken, 10)
 		if err != nil {
 			return ErrFailedToGetSshCert
 		}

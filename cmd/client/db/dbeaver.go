@@ -7,7 +7,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/mysocketio/mysocketctl-go/client/preference"
 	"github.com/mysocketio/mysocketctl-go/internal/client"
+	"github.com/mysocketio/mysocketctl-go/internal/enum"
 	"github.com/spf13/cobra"
 )
 
@@ -15,21 +17,39 @@ var dbeaverCmd = &cobra.Command{
 	Use:   "db:dbeaver",
 	Short: "Connect to a database socket with dbeaver",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var (
-			dbName string
-			err    error
-		)
-		hostname, dbName, err = client.PickHostAndEnterDBName(hostname, dbNameFrom(args))
+		var err error
+		hostname, err = client.PickHost(hostname, enum.DatabaseSocket)
 		if err != nil {
 			return err
 		}
 
-		_, claims, err := client.MTLSLogin(hostname)
+		// Let's read preferences from the config file
+		pref, err := preference.Read()
+		if err != nil {
+			fmt.Println("WARNING: could not read preference file:", err)
+		}
+		socketPref := preference.NewDatabaseSocket(hostname)
+
+		var suggestedDBName string
+
+		dbName := dbNameFrom(args)
+		if dbName == "" {
+			suggestedSocket := pref.GetOrSuggestSocket(hostname, enum.DatabaseSocket)
+			if preference.Found(suggestedSocket) {
+				suggestedDBName = suggestedSocket.DatabaseName
+				socketPref = suggestedSocket
+			}
+		}
+
+		dbName, err = client.EnterDBName(dbName, suggestedDBName)
 		if err != nil {
 			return err
 		}
 
-		orgID := fmt.Sprint(claims["org_id"])
+		socketPref.DatabaseName = dbName
+		socketPref.DatabaseClient = "dbeaver"
+		pref.SetSocket(socketPref)
+
 		cert, key, _, _, socketPort, err := client.GetOrgCert(hostname)
 		if err != nil {
 			return err
@@ -42,6 +62,11 @@ var dbeaverCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get home dir : %w", err)
 		}
+		_, claims, err := client.MTLSLogin(hostname)
+		if err != nil {
+			return err
+		}
+		orgID := fmt.Sprint(claims["org_id"])
 		keyStorePath := filepath.Join(home, ".mysocketio", orgID+".jks")
 		client.WriteKeyStore(keyStore, keyStorePath, keyStorePassword)
 
@@ -65,15 +90,28 @@ var dbeaverCmd = &cobra.Command{
 		}
 		conn := strings.Join(params, "|")
 
+		persistPreference := func() {
+			// persist preference to json file
+			if err == nil {
+				if err := preference.Write(pref); err != nil {
+					fmt.Println("WARNING: could not update preference file:", err)
+				}
+			}
+		}
+		// make sure we will persist preference on successful connection to socket
+		defer persistPreference()
+		client.OnInterruptDo(persistPreference)
+
 		fmt.Println("Starting up DBeaver...")
 		switch runtime.GOOS {
 		case "darwin":
-			return client.ExecCommand("open", "-a", "dbeaver", "--args", "-con", conn)
+			err = client.ExecCommand("open", "-a", "dbeaver", "--args", "-con", conn)
 		case "windows":
 			conn = "\"" + conn + "\""
-			return client.ExecCommand("cmd", "/C", "start", "", "c:\\Program Files\\DBeaver\\dbeaver.exe", "-con", conn)
+			err = client.ExecCommand("cmd", "/C", "start", "", "c:\\Program Files\\DBeaver\\dbeaver.exe", "-con", conn)
 		default:
-			return client.ExecCommand("dbeaver", "-con", conn)
+			err = client.ExecCommand("dbeaver", "-con", conn)
 		}
+		return err
 	},
 }

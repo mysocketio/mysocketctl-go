@@ -61,14 +61,14 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return s, fmt.Errorf("Error: failed to get home dir: %w", err)
+		return s, fmt.Errorf("error: failed to get home dir: %w", err)
 	}
 
 	privateKeyFile := home + "/.mysocket"
 	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
 		err := os.Mkdir(privateKeyFile, 0700)
 		if err != nil {
-			return s, fmt.Errorf("Error: could not create directory: %w", err)
+			return s, fmt.Errorf("error: could not create directory: %w", err)
 		}
 	}
 
@@ -76,33 +76,32 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 
 	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
 		// Let's create a key pair
-		//log.Println("create key for " + userId)
 
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
-			return s, fmt.Errorf("Error: failed to create ssh key: %v", err)
+			return s, fmt.Errorf("error: failed to create ssh key: %v", err)
 		}
 
 		parsed, err := x509.MarshalECPrivateKey(key)
 		if err != nil {
-			return s, fmt.Errorf("Error: failed to create ssh key: %v", err)
+			return s, fmt.Errorf("error: failed to create ssh key: %v", err)
 		}
 
 		keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: parsed})
 		err = ioutil.WriteFile(privateKeyFile, keyPem, 0600)
 		if err != nil {
-			return s, fmt.Errorf("Error: failed to write ssh key: %v", err)
+			return s, fmt.Errorf("error: failed to write ssh key: %v", err)
 		}
 	}
 	// Ok now let's load the key
 
 	if _, err := os.Stat(privateKeyFile); os.IsNotExist(err) {
-		return s, fmt.Errorf("Error: failed to load private ssh key: %v", err)
+		return s, fmt.Errorf("error: failed to load private ssh key: %v", err)
 	}
 	// read private key from file
 	keyContent, _ := ioutil.ReadFile(privateKeyFile)
 	if err != nil {
-		return s, fmt.Errorf("Error: failed to load private ssh key: %v", err)
+		return s, fmt.Errorf("error: failed to load private ssh key: %v", err)
 	}
 
 	block, _ := pem.Decode(keyContent)
@@ -110,16 +109,15 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 		return s, fmt.Errorf("failed to decode PEM block containing public key: %v", err)
 	}
 
-	//pkey, err := ssh.ParsePrivateKey(keyContent)
 	pkey, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
-		return s, fmt.Errorf("Error: failed to parse private ssh key: %v", err)
+		return s, fmt.Errorf("error: failed to parse private ssh key: %v", err)
 	}
 
 	// create public key
 	pub, err := ssh.NewPublicKey(&pkey.PublicKey)
 	if err != nil {
-		return s, fmt.Errorf("Error: failed to create public ssh key: %v", err)
+		return s, fmt.Errorf("error: failed to create public ssh key: %v", err)
 	}
 	data := ssh.MarshalAuthorizedKey(pub)
 
@@ -128,12 +126,11 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 	newCsr := &models.SshCsr{
 		SSHPublicKey: strings.TrimRight(string(data), "\n"),
 	}
-	//log.Println(newCsr)
+
 	client, err := mysocketctlhttp.NewClientWithAccessToken(accessToken)
 	if err != nil {
-		return s, fmt.Errorf("Error: %v", err)
+		return s, fmt.Errorf("error: %v", err)
 	}
-	//err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
 
 	for i := 1; i <= numOfRetry; i++ {
 		err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
@@ -146,19 +143,19 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 		time.Sleep(d)
 	}
 	if signedCert.SSHSignedCert == "" {
-		return s, fmt.Errorf("Error: Unable to get signed key from Server")
+		return s, fmt.Errorf("error: Unable to get signed key from Server")
 	}
 
 	certData := []byte(signedCert.SSHSignedCert)
 	pubcert, _, _, _, err := ssh.ParseAuthorizedKey(certData)
 	if err != nil {
-		return s, fmt.Errorf("Error: %v", err)
+		return s, fmt.Errorf("error: %v", err)
 	}
 	cert, ok := pubcert.(*ssh.Certificate)
 	if !ok {
-		return s, fmt.Errorf("Error failed to cast to certificate: %v", err)
+		return s, fmt.Errorf("error failed to cast to certificate: %v", err)
 	}
-	//log.Println(cert.ValidPrincipals[0])
+
 	clientKey, _ := ssh.ParsePrivateKey(keyContent)
 	certSigner, err := ssh.NewCertSigner(cert, clientKey)
 	if err != nil {
@@ -280,6 +277,10 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 	sshClient := ssh.NewClient(sshCon, channel, req)
 	defer sshClient.Close()
 
+	done := make(chan bool, 1)
+	defer func() { done <- true }()
+	go KeepAlive(sshClient, done)
+
 	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
 	if err != nil {
 		log.Printf("Listen open port ON remote server on port %d error: %s", tunnel.LocalPort, err)
@@ -331,10 +332,6 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 			}
 		}()
 	}
-
-	done := make(chan bool, 1)
-	defer func() { done <- true }()
-	go KeepAlive(sshClient, done)
 
 	if err := session.Wait(); err != nil {
 		log.Printf("ssh session error: %v", err)

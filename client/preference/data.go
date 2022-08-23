@@ -8,8 +8,10 @@ import (
 )
 
 type Data struct {
-	Orgs    map[string]Org    `json:"orgs"`
-	Sockets map[string]Socket `json:"sockets"`
+	Orgs              map[string]Org    `json:"orgs"`
+	Sockets           map[string]Socket `json:"sockets"`
+	PreferredTerminal string            `json:"preferred_terminal"`
+	PathEnvConfigured bool              `json:"path_env_configured"`
 }
 
 type Org struct {

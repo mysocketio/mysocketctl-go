@@ -88,7 +88,7 @@ var dbCmd = &cobra.Command{
 			args = append(args, dbName)
 		}
 
-		// no need to persist perference in this function because it will be done
+		// no need to persist preference in this function because it will be done
 		// in foundCmd before return or when os.Interrupt signal is caught there
 		return foundCmd.RunE(foundCmd, args)
 	},

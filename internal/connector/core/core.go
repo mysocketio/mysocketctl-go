@@ -181,7 +181,7 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 		socket.SanitizeName()
 		socket.BuildConnectorData(c.cfg.Connector.Name)
 		socket.Tags = socket.ConnectorData.Tags()
-		socket.SetupTypeAndUpstreamTypeByPort()
+		socket.SetupTypeAndUpstreamTypeByPortOrTags()
 		localSocketsMap[socket.ConnectorData.Key()] = socket
 
 		// update socket in the list

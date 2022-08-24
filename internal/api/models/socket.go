@@ -123,23 +123,41 @@ func (s *Socket) BuildConnectorDataByTags() {
 	s.ConnectorData = &data
 }
 
-func (s *Socket) SetupTypeAndUpstreamTypeByPort() {
+func (s *Socket) SetupTypeAndUpstreamTypeByPortOrTags() {
 	if s.UpstreamType == "" {
 		s.UpstreamType = "http"
 
-		if s.TargetPort == 3306 {
-			s.SocketType = "database"
-			s.UpstreamType = "mysql"
-		}
-		if s.TargetPort == 22 {
-			s.SocketType = "ssh"
-		}
-		if s.TargetPort == 80 {
-			s.SocketType = "http"
-		}
-		if s.TargetPort == 443 {
-			s.SocketType = "http"
-			s.UpstreamType = "https"
+		if s.SocketType != "" {
+			if s.SocketType == "mysql" {
+				s.SocketType = "database"
+				s.UpstreamType = "mysql"
+			}
+			if s.SocketType == "ssh" {
+				s.SocketType = "ssh"
+			}
+			if s.SocketType == "http" {
+				s.SocketType = "http"
+			}
+			if s.SocketType == "https" {
+				s.SocketType = "http"
+				s.UpstreamType = "https"
+			}
+		} else {
+
+			if s.TargetPort == 3306 {
+				s.SocketType = "database"
+				s.UpstreamType = "mysql"
+			}
+			if s.TargetPort == 22 {
+				s.SocketType = "ssh"
+			}
+			if s.TargetPort == 80 {
+				s.SocketType = "http"
+			}
+			if s.TargetPort == 443 {
+				s.SocketType = "http"
+				s.UpstreamType = "https"
+			}
 		}
 	}
 }

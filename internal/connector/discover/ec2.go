@@ -97,10 +97,6 @@ func (s *Ec2Discover) buildSocket(connectorName string, group config.ConnectorGr
 	socket.SocketType = socketData.Type
 	socket.AllowedEmailAddresses = group.AllowedEmailAddresses
 	socket.AllowedEmailDomains = group.AllowedEmailDomains
-	if len(socket.AllowedEmailAddresses) > 0 || len(socket.AllowedEmailDomains) > 0 {
-		socket.CloudAuthEnabled = true
-	}
-
 	socket.PrivateSocket = group.PrivateSocket
 
 	socket.TargetHostname = socketData.Host

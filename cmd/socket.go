@@ -71,7 +71,7 @@ var socketsListCmd = &cobra.Command{
 				}
 			}
 
-			t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Description})
+			t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.Description})
 		}
 		t.SetStyle(table.StyleLight)
 		fmt.Printf("%s\n", t.Render())
@@ -100,41 +100,32 @@ var socketCreateCmd = &cobra.Command{
 		var allowedEmailDomains []string
 		var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
-		if cloudauth {
-			for _, a := range strings.Split(cloudauth_addresses, ",") {
-				email := strings.TrimSpace(a)
-				if emailRegex.MatchString(email) {
-					allowedEmailAddresses = append(allowedEmailAddresses, email)
-				} else {
-					if email != "" {
-						log.Printf("Warning: ignoring invalid email %s", email)
-					}
+		for _, a := range strings.Split(cloudauth_addresses, ",") {
+			email := strings.TrimSpace(a)
+			if emailRegex.MatchString(email) {
+				allowedEmailAddresses = append(allowedEmailAddresses, email)
+			} else {
+				if email != "" {
+					log.Printf("Warning: ignoring invalid email %s", email)
 				}
 			}
+		}
 
-			for _, d := range strings.Split(cloudauth_domains, ",") {
-				domain := strings.TrimSpace(d)
-				if domain != "" {
-					allowedEmailDomains = append(allowedEmailDomains, domain)
-				}
+		for _, d := range strings.Split(cloudauth_domains, ",") {
+			domain := strings.TrimSpace(d)
+			if domain != "" {
+				allowedEmailDomains = append(allowedEmailDomains, domain)
 			}
-			if len(allowedEmailDomains) == 0 && len(allowedEmailAddresses) == 0 {
-				log.Println("No Email or Email Domains were provided.")
-				log.Println("No-one will have access.")
-				os.Exit(1)
-			}
+		}
+		if len(allowedEmailDomains) == 0 && len(allowedEmailAddresses) == 0 {
+			log.Println("No Email or Email Domains were provided.")
+			log.Println("No-one will have access.")
+			os.Exit(1)
 		}
 
 		socketType := strings.ToLower(socketType)
 		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" && socketType != "database" {
 			log.Fatalf("error: --type should be either http, https, ssh, database, tcp or tls")
-		}
-
-		if socketType == "ssh" || socketType == "database" {
-			if !cloudauth {
-				log.Println("Cloud Authentication required for ssh sockets")
-				os.Exit(1)
-			}
 		}
 
 		if socketType == "database" {
@@ -172,7 +163,6 @@ var socketCreateCmd = &cobra.Command{
 			SocketType:            socketType,
 			ProtectedUsername:     username,
 			ProtectedPassword:     password,
-			CloudAuthEnabled:      cloudauth,
 			AllowedEmailAddresses: allowedEmailAddresses,
 			AllowedEmailDomains:   allowedEmailDomains,
 			UpstreamUsername:      upstream_username,
@@ -268,7 +258,6 @@ func init() {
 	socketCreateCmd.Flags().BoolVarP(&protected, "protected", "p", false, "Protected, default no")
 	socketCreateCmd.Flags().StringVarP(&username, "username", "u", "", "Username, required when protected set to true")
 	socketCreateCmd.Flags().StringVarP(&password, "password", "", "", "Password, required when protected set to true")
-	socketCreateCmd.Flags().BoolVarP(&cloudauth, "cloudauth", "c", false, "Enable oauth/oidc authentication")
 	socketCreateCmd.Flags().StringVarP(&cloudauth_addresses, "allowed_email_addresses", "e", "", "Comma seperated list of allowed Email addresses when using cloudauth")
 	socketCreateCmd.Flags().StringVarP(&cloudauth_domains, "allowed_email_domains", "d", "", "comma seperated list of allowed Email domain (i.e. 'example.com', when using cloudauth")
 	socketCreateCmd.Flags().StringVarP(&upstream_username, "upstream_username", "j", "", "Upstream username used to connect to upstream database")

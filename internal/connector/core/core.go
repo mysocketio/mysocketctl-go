@@ -232,15 +232,13 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 
 	if !check || apiSocket.UpstreamHttpHostname != localSocket.UpstreamHttpHostname ||
 		apiSocket.UpstreamUsername != localSocket.UpstreamUsername ||
-		apiSocket.UpstreamType != localSocket.UpstreamType ||
-		apiSocket.CloudAuthEnabled != localSocket.CloudAuthEnabled {
+		apiSocket.UpstreamType != localSocket.UpstreamType {
 
 		apiSocket.AllowedEmailAddresses = localSocket.AllowedEmailAddresses
 		apiSocket.AllowedEmailDomains = localSocket.AllowedEmailDomains
 		apiSocket.UpstreamHttpHostname = localSocket.UpstreamHttpHostname
 		apiSocket.UpstreamUsername = localSocket.UpstreamUsername
 		apiSocket.UpstreamType = ""
-		apiSocket.CloudAuthEnabled = localSocket.CloudAuthEnabled
 		apiSocket.Tags = localSocket.Tags
 
 		err := c.mysocketAPI.UpdateSocket(ctx, apiSocket.SocketID, apiSocket)

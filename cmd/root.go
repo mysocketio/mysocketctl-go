@@ -46,7 +46,6 @@ var (
 	socketID               string
 	tunnelID               string
 	identityFile           string
-	cloudauth              bool
 	cloudauth_addresses    string
 	cloudauth_domains      string
 	proxyHost              string
@@ -112,7 +111,7 @@ func print_socket(s models.Socket) string {
 		}
 	}
 
-	t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.CloudAuthEnabled, s.Description})
+	t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.Description})
 	t.SetStyle(table.StyleLight)
 	socket_output = socket_output + fmt.Sprintf("%s\n", t.Render())
 
@@ -124,13 +123,11 @@ func print_socket(s models.Socket) string {
 		socket_output = socket_output + fmt.Sprintf("\nProtected Socket:\n%s\n", tp.Render())
 	}
 
-	if s.CloudAuthEnabled {
-		tc := table.NewWriter()
-		tc.AppendHeader(table.Row{"Allowed email addresses", "Allowed email domains"})
-		tc.AppendRow(table.Row{strings.Join(s.AllowedEmailAddresses, "\n"), strings.Join(s.AllowedEmailDomains, "\n")})
-		tc.SetStyle(table.StyleLight)
-		socket_output = socket_output + fmt.Sprintf("\nCloud Authentication, login details:\n%s\n", tc.Render())
-	}
+	tc := table.NewWriter()
+	tc.AppendHeader(table.Row{"Allowed email addresses", "Allowed email domains"})
+	tc.AppendRow(table.Row{strings.Join(s.AllowedEmailAddresses, "\n"), strings.Join(s.AllowedEmailDomains, "\n")})
+	tc.SetStyle(table.StyleLight)
+	socket_output = socket_output + fmt.Sprintf("\nCloud Authentication, login details:\n%s\n", tc.Render())
 
 	if s.SocketType == "http" || s.SocketType == "https" {
 		th := table.NewWriter()

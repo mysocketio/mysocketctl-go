@@ -115,6 +115,8 @@ func (s *K8Discover) buildSocket(connectorName string, group config.K8Plugin, se
 		socket.Dnsname = name
 	}
 
+	socket.CloudAuthEnabled = true
+
 	return &socket
 }
 

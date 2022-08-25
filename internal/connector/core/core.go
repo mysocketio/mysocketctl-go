@@ -239,6 +239,7 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 		apiSocket.UpstreamHttpHostname = localSocket.UpstreamHttpHostname
 		apiSocket.UpstreamUsername = localSocket.UpstreamUsername
 		apiSocket.UpstreamType = ""
+		apiSocket.CloudAuthEnabled = true
 		apiSocket.Tags = localSocket.Tags
 
 		err := c.mysocketAPI.UpdateSocket(ctx, apiSocket.SocketID, apiSocket)

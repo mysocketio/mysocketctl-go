@@ -169,6 +169,7 @@ var socketCreateCmd = &cobra.Command{
 			UpstreamPassword:      upstream_password,
 			UpstreamHttpHostname:  upstream_http_hostname,
 			UpstreamType:          upstreamType,
+			CloudAuthEnabled:      true,
 		}
 		err = client.WithVersion(version).Request("POST", "socket", &s, newSocket)
 		if err != nil {

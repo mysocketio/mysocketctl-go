@@ -36,6 +36,7 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 			socket.TargetPort = v.Port
 			socket.PrivateSocket = v.PrivateSocket
 			socket.UpstreamHttpHostname = v.UpstreamHttpHostname
+			socket.CloudAuthEnabled = true
 
 			if socket.PrivateSocket {
 				socket.Dnsname = socket.Name

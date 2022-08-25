@@ -187,6 +187,9 @@ func (a *MysocketAPI) GetTunnel(ctx context.Context, socketID string, tunnelID s
 func (a *MysocketAPI) CreateSocket(ctx context.Context, socket *models.Socket) (*models.Socket, error) {
 	s := models.Socket{}
 
+	// Force cloud auth
+	socket.CloudAuthEnabled = true
+
 	err := a.Request("POST", "socket", &s, socket, true)
 	if err != nil {
 		return nil, err
@@ -218,6 +221,9 @@ func (a *MysocketAPI) DeleteSocket(ctx context.Context, socketID string) error {
 
 func (a *MysocketAPI) UpdateSocket(ctx context.Context, socketID string, socket models.Socket) error {
 	var result models.Socket
+
+	// Force cloud auth
+	socket.CloudAuthEnabled = true
 
 	err := a.Request("PUT", "socket/"+socketID, &result, &socket, true)
 	if err != nil {

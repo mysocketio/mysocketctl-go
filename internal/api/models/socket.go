@@ -54,7 +54,6 @@ type Socket struct {
 	ProtectedSocket       bool              `json:"protected_socket"`
 	ProtectedUsername     string            `json:"protected_username"`
 	ProtectedPassword     string            `json:"protected_password"`
-	CloudAuthEnabled      bool              `json:"cloud_authentication_enabled,omitempty"`
 	AllowedEmailAddresses []string          `json:"cloud_authentication_email_allowed_addressses,omitempty"`
 	AllowedEmailDomains   []string          `json:"cloud_authentication_email_allowed_domains,omitempty"`
 	SSHCa                 string            `json:"ssh_ca,omitempty"`
@@ -62,6 +61,7 @@ type Socket struct {
 	UpstreamPassword      string            `json:"upstream_password,omitempty"`
 	UpstreamHttpHostname  string            `json:"upstream_http_hostname,omitempty"`
 	UpstreamType          string            `json:"upstream_type,omitempty"`
+	CloudAuthEnabled      bool              `json:"cloud_authentication_enabled,omitempty"`
 	Tags                  map[string]string `json:"tags,omitempty"`
 	CustomDomains         []string          `json:"custom_domains,omitempty"`
 	PrivateSocket         bool              `json:"private_socket"`

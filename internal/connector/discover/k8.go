@@ -104,13 +104,8 @@ func (s *K8Discover) buildSocket(connectorName string, group config.K8Plugin, se
 
 	if _, ok = service.Annotations["mysocket.io/allowedEmailDomains"]; ok {
 		socket.AllowedEmailDomains = strings.Split(service.Annotations["mysocket.io/allowedEmailDomains"], ",")
-		socket.CloudAuthEnabled = true
 	} else {
 		socket.AllowedEmailDomains = group.AllowedEmailDomains
-	}
-
-	if len(socket.AllowedEmailAddresses) > 0 || len(socket.AllowedEmailDomains) > 0 {
-		socket.CloudAuthEnabled = true
 	}
 
 	name := fmt.Sprintf("%v-%v-%v", socket.SocketType, service.Name, connectorName)

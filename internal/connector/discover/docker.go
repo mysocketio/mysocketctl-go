@@ -125,9 +125,6 @@ func (s *DockerFinder) buildSocket(connectorName string, group config.ConnectorG
 	socket.SocketType = socketData.Type
 	socket.AllowedEmailAddresses = group.AllowedEmailAddresses
 	socket.AllowedEmailDomains = group.AllowedEmailDomains
-	if len(socket.AllowedEmailAddresses) > 0 || len(socket.AllowedEmailDomains) > 0 {
-		socket.CloudAuthEnabled = true
-	}
 
 	socket.PrivateSocket = group.PrivateSocket
 

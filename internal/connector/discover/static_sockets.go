@@ -24,11 +24,7 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 	for _, socketMap := range cfg.Sockets {
 		socket := models.Socket{}
 
-		socket.CloudAuthEnabled = false
 		for k, v := range socketMap {
-			if len(v.AllowedEmailAddresses) > 0 || len(v.AllowedEmailDomains) > 0 {
-				socket.CloudAuthEnabled = true
-			}
 
 			socket.Name = k
 			socket.AllowedEmailAddresses = v.AllowedEmailAddresses
@@ -40,6 +36,7 @@ func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state 
 			socket.TargetPort = v.Port
 			socket.PrivateSocket = v.PrivateSocket
 			socket.UpstreamHttpHostname = v.UpstreamHttpHostname
+			socket.CloudAuthEnabled = true
 
 			if socket.PrivateSocket {
 				socket.Dnsname = socket.Name

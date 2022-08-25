@@ -74,11 +74,11 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 							scan_result := scanPort(i, j)
 							if scan_result {
 								// Set the name, in the form of host-1-2-3-4-443
-								socketName := fmt.Sprintf("%s-%d-%s",  j.ip, j.port,cfg.Connector.Name)
+								socketName := fmt.Sprintf("%s-%d-%s", j.ip, j.port, cfg.Connector.Name)
 								socketName = strings.Replace(socketName, " ", "-", -1)
 								socketName = strings.Replace(socketName, ".", "-", -1)
 								socketName = strings.Replace(socketName, "_", "-", -1)
-                                
+
 								// Create the socket
 
 								socket := models.Socket{}
@@ -96,9 +96,6 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 
 								socket.AllowedEmailAddresses = group.AllowedEmailAddresses
 								socket.AllowedEmailDomains = group.AllowedEmailDomains
-								if len(socket.AllowedEmailAddresses) > 0 || len(socket.AllowedEmailDomains) > 0 {
-									socket.CloudAuthEnabled = true
-								}
 
 								sockets = append(sockets, socket)
 							}

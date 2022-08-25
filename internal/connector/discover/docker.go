@@ -137,6 +137,7 @@ func (s *DockerFinder) buildSocket(connectorName string, group config.ConnectorG
 	if socket.PrivateSocket {
 		socket.Dnsname = socket.Name
 	}
+	socket.CloudAuthEnabled = true
 	return socket
 }
 

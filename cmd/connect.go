@@ -128,6 +128,7 @@ var connectCmd = &cobra.Command{
 			UpstreamPassword:      upstream_password,
 			UpstreamHttpHostname:  upstream_http_hostname,
 			UpstreamType:          upstreamType,
+			CloudAuthEnabled:      true,
 		}
 
 		client, err := http.NewClient()

@@ -165,7 +165,7 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 	return certSigner, nil
 }
 
-func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string, accessToken string) error {
+func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localhttp, localssh bool, sshCa string, accessToken, httpdir string) error {
 	tunnel, err := api.NewAPI(api.WithAccessToken(accessToken)).GetTunnel(context.Background(), socketID, tunnelID)
 	if err != nil {
 		return fmt.Errorf("error getting tunnel: %v", err)
@@ -252,11 +252,11 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		fmt.Println("\nConnecting to Server: " + sshServer() + "\n")
 		time.Sleep(1 * time.Second)
 
-		sshConnect(proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+		sshConnect(proxyDialer, sshConfig, tunnel, port, targethost, localhttp, localssh, sshCa, httpdir)
 	}
 }
 
-func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localssh bool, sshCa string) {
+func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localhttp, localssh bool, sshCa, httpDir string) {
 	remoteHost := net.JoinHostPort(sshServer(), "22")
 
 	conn, err := proxyDialer.Dial("tcp", remoteHost)
@@ -306,6 +306,10 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 	if err := session.Shell(); err != nil {
 		log.Print(err)
 		return
+	}
+
+	if localhttp {
+		go mysocketctlhttp.StartLocalHTTPServer("", listener)
 	}
 
 	if localssh {

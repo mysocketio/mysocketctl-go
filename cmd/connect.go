@@ -49,16 +49,16 @@ var connectCmd = &cobra.Command{
 			log.Fatalf("error: empty name not allowed")
 		}
 
-		if port == 0 {
-			if socketType == "ssh" {
-				if !localssh {
-					cmd.Help()
-					log.Fatalf("error: port not specified")
-				}
-			} else {
-				cmd.Help()
-				log.Fatalf("error: port not specified")
-			}
+		if port == 0 && socketType == "http" && !httpserver {
+			cmd.Help()
+			log.Fatalf("error: port not specified")
+
+		}
+
+		if port == 0 && socketType == "ssh" && !localssh {
+			cmd.Help()
+			log.Fatalf("error: port not specified")
+
 		}
 
 		var allowedEmailAddresses []string

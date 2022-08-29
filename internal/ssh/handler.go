@@ -309,7 +309,7 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 	}
 
 	if localhttp {
-		go mysocketctlhttp.StartLocalHTTPServer("", listener)
+		go mysocketctlhttp.StartLocalHTTPServer(httpDir, listener)
 	}
 
 	if localssh {

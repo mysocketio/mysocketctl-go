@@ -54,6 +54,8 @@ var (
 	upstream_password      string
 	upstream_http_hostname string
 	upstream_type          string
+	httpserver             bool
+	httpserver_dir         string
 	localssh               bool
 	orgName                string
 	sso                    string

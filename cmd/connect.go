@@ -49,16 +49,16 @@ var connectCmd = &cobra.Command{
 			log.Fatalf("error: empty name not allowed")
 		}
 
-		if port == 0 {
-			if socketType == "ssh" {
-				if !localssh {
-					cmd.Help()
-					log.Fatalf("error: port not specified")
-				}
-			} else {
-				cmd.Help()
-				log.Fatalf("error: port not specified")
-			}
+		if port == 0 && socketType == "http" && !httpserver {
+			cmd.Help()
+			log.Fatalf("error: port not specified")
+
+		}
+
+		if port == 0 && socketType == "ssh" && !localssh {
+			cmd.Help()
+			log.Fatalf("error: port not specified")
+
 		}
 
 		var allowedEmailAddresses []string
@@ -170,13 +170,17 @@ var connectCmd = &cobra.Command{
 			localssh = false
 		}
 
+		if socketType != "http" && httpserver {
+			httpserver = false
+		}
+
 		org := models.Organization{}
 		err = client.Request("GET", "organization", &org, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
 
-		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, localssh, org.Certificates["ssh_public_key"], "")
+		ssh.SshConnect(userIDStr, c.SocketID, c.Tunnels[0].TunnelID, port, hostname, identityFile, proxyHost, version, httpserver, localssh, org.Certificates["ssh_public_key"], "", httpserver_dir)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -209,6 +213,9 @@ func init() {
 	connectCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: Upstream type: http, https for http sockets or mysql, postgres for database sockets")
 	connectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
 	connectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Start a local SSH server to accept SSH sessions on this host")
+	connectCmd.Flags().BoolVarP(&httpserver, "httpserver", "", false, "Start a local http server to accept http connections on this host")
+	connectCmd.Flags().StringVarP(&httpserver_dir, "httpserver_dir", "", "", "Directory to serve http connections on this host")
+
 	connectCmd.MarkFlagRequired("name")
 
 	rootCmd.AddCommand(connectCmd)

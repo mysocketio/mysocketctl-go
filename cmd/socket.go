@@ -58,7 +58,7 @@ var socketsListCmd = &cobra.Command{
 		}
 
 		t := table.NewWriter()
-		t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Cloud Auth", "Description"})
+		t.AppendHeader(table.Row{"Socket ID", "DNS Name", "Port(s)", "Type", "Description"})
 
 		for _, s := range sockets {
 			portsStr = ""

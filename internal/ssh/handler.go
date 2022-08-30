@@ -310,9 +310,7 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 
 	if localhttp {
 		go mysocketctlhttp.StartLocalHTTPServer(httpDir, listener)
-	}
-
-	if localssh {
+	} else if localssh {
 		sshServer := newServer(sshCa)
 		go sshServer.Serve(listener)
 	} else {

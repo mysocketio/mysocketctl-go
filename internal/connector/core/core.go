@@ -88,7 +88,7 @@ func (c *ConnectorCore) TunnelConnnect(ctx context.Context, socket models.Socket
 
 	tunnel := socket.Tunnels[0]
 
-	err = session.Connect(ctx, *userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", false, org.Certificates["ssh_public_key"], c.mysocketAPI.GetAccessToken())
+	err = session.Connect(ctx, *userID, socket.SocketID, tunnel.TunnelID, socket.ConnectorData.Port, socket.ConnectorData.TargetHostname, "", "", "", false, false, org.Certificates["ssh_public_key"], c.mysocketAPI.GetAccessToken(), "")
 	if err != nil {
 		c.connectedTunnels.Delete(socket.ConnectorData.Key())
 		return err

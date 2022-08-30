@@ -51,7 +51,7 @@ func NewConnection(logger *zap.Logger, opts ...ConnectionOption) *Connection {
 	return connection
 }
 
-func (c *Connection) Connect(ctx context.Context, userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh bool, sshCa string, accessToken string) error {
+func (c *Connection) Connect(ctx context.Context, userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localssh, httpserver bool, sshCa string, accessToken, httpdir string) error {
 	c.socketID = socketID
 	c.tunnelID = tunnelID
 
@@ -142,7 +142,7 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 		c.logger.Info("Connecting to Server", zap.String("server", sshServer()))
 		time.Sleep(1 * time.Second)
 
-		err = c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, sshCa)
+		err = c.connect(ctx, proxyDialer, sshConfig, tunnel, port, targethost, localssh, httpserver, sshCa, httpdir)
 		if err != nil {
 			// abort retry when session is disconnected or it's already connected in the tcp port
 			if errors.Is(err, ErrListenOnPort) || errors.Is(err, ErrSessionDisconnected) {
@@ -160,7 +160,7 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 	return errors.New("ssh session disconnected")
 }
 
-func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localssh bool, sshCa string) error {
+func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *models.Tunnel, port int, targethost string, localssh, httpserver bool, sshCa, httpdir string) error {
 	remoteHost := net.JoinHostPort(sshServer(), "22")
 
 	defer c.Close()
@@ -209,7 +209,9 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 		return err
 	}
 
-	if localssh {
+	if httpserver {
+		go mysocketctlhttp.StartLocalHTTPServer(httpdir, listener)
+	} else if localssh {
 		sshServer := newServer(sshCa)
 		go sshServer.Serve(listener)
 	} else {

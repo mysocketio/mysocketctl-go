@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -115,6 +116,12 @@ func print_socket(s models.Socket) string {
 	t.AppendRow(table.Row{s.SocketID, s.Dnsname, portsStr, s.SocketType, s.Description})
 	t.SetStyle(table.StyleLight)
 	socket_output = socket_output + fmt.Sprintf("%s\n", t.Render())
+
+	tc := table.NewWriter()
+	tc.AppendHeader(table.Row{"Allowed email addresses", "Allowed email domains"})
+	tc.AppendRow(table.Row{strings.Join(s.AllowedEmailAddresses, "\n"), strings.Join(s.AllowedEmailDomains, "\n")})
+	tc.SetStyle(table.StyleLight)
+	socket_output = socket_output + fmt.Sprintf("\nCloud Authentication, login details:\n%s\n", tc.Render())
 
 	if s.ProtectedSocket {
 		tp := table.NewWriter()

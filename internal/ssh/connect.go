@@ -182,6 +182,10 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 	sshClient := ssh.NewClient(sshCon, channel, req)
 	defer sshClient.Close()
 
+	done := make(chan bool, 1)
+	defer func() { done <- true }()
+	go KeepAlive(sshClient, done)
+
 	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
 	if err != nil {
 		c.logger.Error("Listen open port ON remote server error", zap.Int("port", tunnel.LocalPort), zap.Error(err))
@@ -235,10 +239,6 @@ func (c *Connection) connect(ctx context.Context, proxyDialer proxy.Dialer, sshC
 			}
 		}()
 	}
-
-	done := make(chan bool, 1)
-	defer func() { done <- true }()
-	go KeepAlive(sshClient, done)
 
 	go func(context.Context) {
 		<-ctx.Done()

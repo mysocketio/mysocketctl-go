@@ -82,7 +82,10 @@ func (a *MysocketAPI) Request(method string, url string, target interface{}, dat
 
 	//try to find the token in the environment
 	if requireAccessToken && a.AccessToken == "" {
-		token, _ := mysocketctlhttp.GetToken()
+		token, err := mysocketctlhttp.GetToken()
+		if err != nil {
+			fmt.Printf("error getting token in %v: %v\n", fmt.Sprintf("%s/%s", APIURL(), url), err)
+		}
 
 		a.AccessToken = token
 	}

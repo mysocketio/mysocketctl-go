@@ -43,9 +43,9 @@ func renderResponse(header http.Header, hostName string, adminName string, admin
 		<h1>🚀 Welcome to the Border0 built-in webserver</h1>
 		
 		<p>Hi and welcome %s (%s)!<br><br>
-		You're visiting the built-in Border0 webserver, this web service was started by the administrator of this Border0 Organizaton: <br><i><u>%s (%s)</u></i> <br><br>
+		You're visiting the built-in Border0 webserver. This is the administrator of the Border0 Organization that started this web service: <br><i><u>%s (%s)</u></i> <br><br>
 
-		You can now start to make your own web, ssh or database applications available through Border0. <br><br>
+		You can now start to make your own web, ssh, or database applications available through Border0. <br><br>
 		Check out the documentation for more information: <a href='https://docs.border0.com'>https://docs.border0.com</a></p>
 		</p>
 		<p> <br><br>

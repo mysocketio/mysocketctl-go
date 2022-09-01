@@ -61,9 +61,29 @@ func renderResponse(header http.Header, hostName string, adminName string, admin
 func StartLocalHTTPServer(dir string, l net.Listener) error {
 
 	if dir == "" {
+
+		// Get Org admin info
+		adminName := "Unknown"
+		adminEmail := "Unknown"
+
 		admindata, err := getAdminData()
-		adminName := admindata["name"].(string)
-		adminEmail := admindata["user_email"].(string)
+		if err != nil {
+			fmt.Println("Warning: Could not get admin data: name", err)
+		} else {
+			if _email, ok := admindata["user_email"].(string); ok {
+				adminEmail = _email
+
+			} else {
+				fmt.Println("Warning: Could not get admin data: email")
+
+			}
+			if _name, ok := admindata["name"].(string); ok {
+				adminName = _name
+			} else {
+				fmt.Println("Warning: Could not get admin data: name")
+			}
+
+		}
 
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -115,5 +135,4 @@ func getAdminData() (jwt.MapClaims, error) {
 
 	claims, _ := token.Claims.(jwt.MapClaims)
 	return claims, nil
-	//return claims["name"].(string), claims["user_email"].(string), nil
 }

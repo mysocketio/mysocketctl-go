@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
@@ -35,8 +34,6 @@ func (s *DockerFinder) SkipRun(ctx context.Context, cfg config.Config, state Dis
 }
 
 func (s *DockerFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
-	time.Sleep(10 * time.Second)
-
 	sockets := []models.Socket{}
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -253,4 +250,8 @@ func (s *DockerFinder) extractPort(ports []types.Port, portType string) uint16 {
 
 func (s *DockerFinder) Name() string {
 	return reflect.TypeOf(s).Elem().Name()
+}
+
+func (s *DockerFinder) WaitSeconds() int64 {
+	return 10
 }

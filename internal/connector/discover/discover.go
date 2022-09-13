@@ -15,5 +15,6 @@ type CustomParams map[string]interface{}
 type Discover interface {
 	Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error)
 	SkipRun(ctx context.Context, cfg config.Config, state DiscoverState) bool
+	WaitSeconds() int64
 	Name() string
 }

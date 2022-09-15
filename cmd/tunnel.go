@@ -147,8 +147,7 @@ var tunnelConnectCmd = &cobra.Command{
 					cmd.Help()
 					log.Fatalf("error: port not specified")
 				}
-			}
-			if socket.SocketType == "ssh" {
+			} else if socket.SocketType == "ssh" {
 				if !localssh {
 					cmd.Help()
 					log.Fatalf("error: port not specified")

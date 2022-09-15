@@ -55,7 +55,7 @@ var connectCmd = &cobra.Command{
 
 		}
 
-		if port == 0 && socketType == "ssh" && !localssh {
+		if port == 0 && socketType == "ssh" && !localssh && !httpserver {
 			cmd.Help()
 			log.Fatalf("error: port not specified")
 

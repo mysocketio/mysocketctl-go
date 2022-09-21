@@ -60,6 +60,8 @@ var (
 	orgName                string
 	sso                    string
 	connectorConfig        string
+	perPage                int64
+	page                   int64
 )
 
 // rootCmd represents the base command when called without any subcommands

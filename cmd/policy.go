@@ -37,7 +37,7 @@ var policysListCmd = &cobra.Command{
 		}
 
 		t := table.NewWriter()
-		t.AppendHeader(table.Row{"ID", "Name", "Description", "PolicyData", "SocketIDs"})
+		t.AppendHeader(table.Row{"ID", "Name", "Description", "Socket IDs"})
 
 		for _, s := range policys {
 			var socketIDs string
@@ -49,7 +49,7 @@ var policysListCmd = &cobra.Command{
 
 			}
 
-			t.AppendRow(table.Row{s.ID, s.Name, s.Description, s.PolicyData, socketIDs})
+			t.AppendRow(table.Row{s.ID, s.Name, s.Description, socketIDs})
 		}
 		t.SetStyle(table.StyleLight)
 		fmt.Printf("%s\n", t.Render())

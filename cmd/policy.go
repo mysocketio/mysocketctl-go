@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -30,19 +29,20 @@ var policysListCmd = &cobra.Command{
 
 		policiesPath := "policies"
 		if perPage != 0 {
-			policiesPath += fmt.Sprintf("?per_page=%d", perPage)
-		}
-
-		if page != 0 {
-			if strings.Contains(policiesPath, "?") {
+			if page == 0 {
+				page = 1
+			}
+			policiesPath += fmt.Sprintf("?page_size=%d", perPage)
+			policiesPath += fmt.Sprintf("&page=%d", page)
+		} else {
+			if page != 0 {
+				policiesPath += fmt.Sprintf("?page_size=%d", 100)
 				policiesPath += fmt.Sprintf("&page=%d", page)
-			} else {
-				policiesPath += fmt.Sprintf("?page=%d", page)
 			}
 		}
 
 		policys := []models.Policy{}
-		err = client.Request("GET", "policies", &policys, nil)
+		err = client.Request("GET", policiesPath, &policys, nil)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}

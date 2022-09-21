@@ -58,5 +58,5 @@ var policysListCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(policyCmd)
-	socketCmd.AddCommand(policysListCmd)
+	policyCmd.AddCommand(policysListCmd)
 }

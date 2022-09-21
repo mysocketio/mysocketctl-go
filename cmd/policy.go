@@ -75,6 +75,6 @@ func init() {
 	rootCmd.AddCommand(policyCmd)
 	policyCmd.AddCommand(policysListCmd)
 
-	policyCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
-	policyCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
+	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
+	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
 }

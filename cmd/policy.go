@@ -52,7 +52,7 @@ var policysListCmd = &cobra.Command{
 		}
 
 		t := table.NewWriter()
-		t.AppendHeader(table.Row{"ID", "Name", "Description", "Socket IDs"})
+		t.AppendHeader(table.Row{"Name", "Description", "# Sockets"})
 
 		for _, s := range policys {
 			var socketIDs string
@@ -64,17 +64,67 @@ var policysListCmd = &cobra.Command{
 
 			}
 
-			t.AppendRow(table.Row{s.ID, s.Name, s.Description, socketIDs})
+			t.AppendRow(table.Row{s.Name, s.Description, len(s.SocketIDs)})
 		}
 		t.SetStyle(table.StyleLight)
 		fmt.Printf("%s\n", t.Render())
 	},
 }
 
+// policyDeleteCmd represents the socket delete command
+var policyDeleteCmd = &cobra.Command{
+	Use:   "delete",
+	Short: "Delete a policy",
+	Run: func(cmd *cobra.Command, args []string) {
+		if policyName == "" {
+			log.Fatalf("error: invalid policy name")
+		}
+
+		policy, err := findPolicyByName(policyName)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+
+		err = client.Request("DELETE", "policy/"+policy.ID, nil, nil)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		fmt.Println("Policy deleted")
+	},
+}
+
+func findPolicyByName(name string) (models.Policy, error) {
+	client, err := http.NewClient()
+
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	policiesPath := "policies/find?name=" + name
+	policy := models.Policy{}
+
+	err = client.Request("GET", policiesPath, &policy, nil)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Error: %v", err))
+	}
+
+	return policy, nil
+}
+
 func init() {
 	rootCmd.AddCommand(policyCmd)
 	policyCmd.AddCommand(policysListCmd)
+	policyCmd.AddCommand(policyDeleteCmd)
 
 	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
 	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
+
+	policyDeleteCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
+	policyDeleteCmd.MarkFlagRequired("name")
 }

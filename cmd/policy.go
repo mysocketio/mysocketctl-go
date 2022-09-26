@@ -130,7 +130,7 @@ var policyAttachCmd = &cobra.Command{
 			}},
 		}
 
-		err = client.Request("POST", "policy/"+policy.ID+"/socket", nil, body)
+		err = client.Request("PUT", "policy/"+policy.ID+"/socket", nil, body)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
@@ -169,12 +169,12 @@ var policyDettachCmd = &cobra.Command{
 			}},
 		}
 
-		err = client.Request("POST", "policy/"+policy.ID+"/socket", nil, body)
+		err = client.Request("PUT", "policy/"+policy.ID+"/socket", nil, body)
 		if err != nil {
 			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
 
-		fmt.Println("Policy attached to socket")
+		fmt.Println("Policy detached from socket")
 	},
 }
 

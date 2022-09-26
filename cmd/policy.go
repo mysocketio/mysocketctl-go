@@ -100,6 +100,84 @@ var policyDeleteCmd = &cobra.Command{
 	},
 }
 
+// policyAttachCmd represents the policy delete command
+var policyAttachCmd = &cobra.Command{
+	Use:   "attach",
+	Short: "Attach a policy",
+	Run: func(cmd *cobra.Command, args []string) {
+		if policyName == "" {
+			log.Fatalf("error: invalid policy name")
+		}
+
+		if socketID == "" {
+			log.Fatalf("error: invalid socket id")
+		}
+
+		policy, err := findPolicyByName(policyName)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+
+		body := models.AddSocketToPolicyRequest{
+			Actions: []models.PolicyActionUpdateRequest{{
+				ID:     socketID,
+				Action: "add",
+			}},
+		}
+
+		err = client.Request("POST", "policy/"+policy.ID+"/socket", nil, body)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		fmt.Println("Policy attached to socket")
+	},
+}
+
+// policyDettachCmd represents the policy delete command
+var policyDettachCmd = &cobra.Command{
+	Use:   "detach",
+	Short: "Detach a policy",
+	Run: func(cmd *cobra.Command, args []string) {
+		if policyName == "" {
+			log.Fatalf("error: invalid policy name")
+		}
+
+		if socketID == "" {
+			log.Fatalf("error: invalid socket id")
+		}
+
+		policy, err := findPolicyByName(policyName)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+
+		body := models.AddSocketToPolicyRequest{
+			Actions: []models.PolicyActionUpdateRequest{{
+				ID:     socketID,
+				Action: "remove",
+			}},
+		}
+
+		err = client.Request("POST", "policy/"+policy.ID+"/socket", nil, body)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		fmt.Println("Policy attached to socket")
+	},
+}
+
 // policyShowCmd represents the policy show command
 var policyShowCmd = &cobra.Command{
 	Use:   "show",
@@ -159,6 +237,8 @@ func init() {
 	policyCmd.AddCommand(policysListCmd)
 	policyCmd.AddCommand(policyDeleteCmd)
 	policyCmd.AddCommand(policyShowCmd)
+	policyCmd.AddCommand(policyAttachCmd)
+	policyCmd.AddCommand(policyDettachCmd)
 
 	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
 	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
@@ -168,4 +248,15 @@ func init() {
 
 	policyShowCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
 	policyShowCmd.MarkFlagRequired("name")
+
+	policyAttachCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
+	policyAttachCmd.MarkFlagRequired("name")
+	policyAttachCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
+	policyAttachCmd.MarkFlagRequired("socket_id")
+
+	policyDettachCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
+	policyDettachCmd.MarkFlagRequired("name")
+	policyDettachCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
+	policyDettachCmd.MarkFlagRequired("socket_id")
+
 }

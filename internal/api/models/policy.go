@@ -40,3 +40,11 @@ type ConditionWhen struct {
 	TimeOfDayAfter  string     `json:"time_of_day_after,omitempty" mapstructure:"time_of_day_after"`
 	TimeOfDayBefore string     `json:"time_of_day_before,omitempty" mapstructure:"time_of_day_before"`
 }
+
+type PolicyActionUpdateRequest struct {
+	Action string `json:"action" binding:"required"`
+	ID     string `json:"id" binding:"required"`
+}
+type AddSocketToPolicyRequest struct {
+	Actions []PolicyActionUpdateRequest `json:"actions" binding:"required"`
+}

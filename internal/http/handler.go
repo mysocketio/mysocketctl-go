@@ -145,9 +145,11 @@ func (c *Client) Request(method string, url string, target interface{}, data int
 		return nil
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(target)
-	if err != nil {
-		return errors.New("failed to decode data")
+	if target != nil {
+		err = json.NewDecoder(resp.Body).Decode(target)
+		if err != nil {
+			return errors.New("failed to decode data")
+		}
 	}
 
 	return nil

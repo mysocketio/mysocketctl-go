@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -71,7 +72,7 @@ var policysListCmd = &cobra.Command{
 	},
 }
 
-// policyDeleteCmd represents the socket delete command
+// policyDeleteCmd represents the policy delete command
 var policyDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a policy",
@@ -99,6 +100,42 @@ var policyDeleteCmd = &cobra.Command{
 	},
 }
 
+// policyShowCmd represents the policy show command
+var policyShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show a policy",
+	Run: func(cmd *cobra.Command, args []string) {
+		if policyName == "" {
+			log.Fatalf("error: invalid policy name")
+		}
+
+		policy, err := findPolicyByName(policyName)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		t := table.NewWriter()
+		t.AppendHeader(table.Row{"Name", "Description", "# Sockets"})
+		t.AppendRow(table.Row{policy.Name, policy.Description, len(policy.SocketIDs)})
+		t.SetStyle(table.StyleLight)
+		fmt.Printf("%s\n", t.Render())
+
+		jsonData, err := json.MarshalIndent(policy.PolicyData, "", "  ")
+		if err != nil {
+			fmt.Printf("could not marshal json: %s\n", err)
+			return
+		}
+
+		t = table.NewWriter()
+		t.AppendHeader(table.Row{"Policy Data"})
+		t.AppendRow(table.Row{string(jsonData)})
+		t.SetStyle(table.StyleLight)
+
+		fmt.Printf("%s\n", t.Render())
+
+	},
+}
+
 func findPolicyByName(name string) (models.Policy, error) {
 	client, err := http.NewClient()
 
@@ -121,10 +158,14 @@ func init() {
 	rootCmd.AddCommand(policyCmd)
 	policyCmd.AddCommand(policysListCmd)
 	policyCmd.AddCommand(policyDeleteCmd)
+	policyCmd.AddCommand(policyShowCmd)
 
 	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
 	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
 
 	policyDeleteCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
 	policyDeleteCmd.MarkFlagRequired("name")
+
+	policyShowCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
+	policyShowCmd.MarkFlagRequired("name")
 }

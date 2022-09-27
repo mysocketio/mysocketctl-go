@@ -3,7 +3,6 @@ package discover
 import (
 	"context"
 	"reflect"
-	"time"
 
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
@@ -17,9 +16,11 @@ func (s *StaticSocketFinder) SkipRun(ctx context.Context, cfg config.Config, sta
 	return false
 }
 
-func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
-	time.Sleep(30 * time.Second)
+func (s *StaticSocketFinder) WaitSeconds() int64 {
+	return 30
+}
 
+func (s *StaticSocketFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
 	sockets := []models.Socket{}
 	for _, socketMap := range cfg.Sockets {
 		socket := models.Socket{}

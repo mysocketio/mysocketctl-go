@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/connector/config"
@@ -35,9 +34,11 @@ func (s *K8Discover) SkipRun(ctx context.Context, cfg config.Config, state Disco
 	return false
 }
 
-func (s *K8Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
-	time.Sleep(10 * time.Second)
+func (s *K8Discover) WaitSeconds() int64 {
+	return 10
+}
 
+func (s *K8Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
 	clientset, err := kubernetes.NewForConfig(s.clusterConfig)
 	if err != nil {
 		fmt.Println("error creating k8 client:", err)

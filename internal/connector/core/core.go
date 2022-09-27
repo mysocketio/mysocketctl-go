@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync/atomic"
+	"time"
 
 	"github.com/mysocketio/mysocketctl-go/internal/api"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -151,6 +152,10 @@ func (c *ConnectorCore) DiscoverNewSocketChanges(ctx context.Context, ch chan []
 
 	if c.discovery.SkipRun(ctx, c.cfg, c.discoverState) {
 		return
+	}
+	if c.numberOfRuns != 0 {
+		seconds := c.discovery.WaitSeconds()
+		time.Sleep(time.Duration(seconds) * time.Second)
 	}
 
 	sockets, err := c.discovery.Find(ctx, c.cfg, c.discoverState)

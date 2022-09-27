@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -38,7 +37,6 @@ func (s *Ec2Discover) SkipRun(ctx context.Context, cfg config.Config, state Disc
 }
 
 func (s *Ec2Discover) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
-	time.Sleep(10 * time.Second)
 	// find all instance running in the configured region
 	params := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
@@ -147,4 +145,8 @@ func parseAwsDataTag(tag string) Ec2SocketData {
 	mapstructure.Decode(data, &ec2SocketData)
 
 	return ec2SocketData
+}
+
+func (s *Ec2Discover) WaitSeconds() int64 {
+	return 10
 }

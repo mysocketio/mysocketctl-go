@@ -32,12 +32,15 @@ func (s *NetworkFinder) Name() string {
 	return reflect.TypeOf(s).Elem().Name()
 }
 
+func (s *NetworkFinder) WaitSeconds() int64 {
+	return 10
+}
+
 func (s *NetworkFinder) SkipRun(ctx context.Context, cfg config.Config, state DiscoverState) bool {
 	return false
 }
 
 func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state DiscoverState) ([]models.Socket, error) {
-	time.Sleep(10 * time.Second)
 	sockets := []models.Socket{}
 
 	for _, group := range cfg.NetworkPlugin {

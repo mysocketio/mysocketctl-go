@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -258,6 +259,37 @@ var policyAddCmd = &cobra.Command{
 			fmt.Printf("there was a problem with the editor")
 			return
 		}
+		jsonFile, err := os.Open(fpath)
+		if err != nil {
+			fmt.Printf("could not open policy file %s\n", err)
+			return
+		}
+		defer jsonFile.Close()
+		byteValue, err := ioutil.ReadAll(jsonFile)
+		if err != nil {
+			fmt.Printf("could not open policy file %s\n", err)
+			return
+		}
+
+		var policyData models.PolicyData
+
+		json.Unmarshal(byteValue, &policyData)
+
+		req := models.CreatePolicyRequest{
+			Name:       policyName,
+			PolicyData: policyData,
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		err = client.Request("POST", "policies", nil, req)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		fmt.Println("Policy created")
 	},
 }
 

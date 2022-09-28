@@ -47,6 +47,10 @@ var policysListCmd = &cobra.Command{
 			}
 		}
 
+		if socketID != "" {
+			policiesPath += fmt.Sprintf("&socket_id=%s", socketID)
+		}
+
 		policys := []models.Policy{}
 		err = client.Request("GET", policiesPath, &policys, nil)
 		if err != nil {
@@ -339,6 +343,7 @@ func init() {
 
 	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
 	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
+	policysListCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 
 	policyDeleteCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
 	policyDeleteCmd.MarkFlagRequired("name")

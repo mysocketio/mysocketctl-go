@@ -280,4 +280,7 @@ func init() {
 		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 
+	socketCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
+	socketCmd.AddCommand(policyCmd)
+
 }

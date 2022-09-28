@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
@@ -244,7 +245,7 @@ var policyAddCmd = &cobra.Command{
 		file.WriteString(policyTemplate())
 		file.Close()
 
-		c := exec.Command("vi", fpath)
+		c := exec.Command(defaultEnvEditor(), fpath)
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -276,8 +277,9 @@ var policyAddCmd = &cobra.Command{
 		json.Unmarshal(byteValue, &policyData)
 
 		req := models.CreatePolicyRequest{
-			Name:       policyName,
-			PolicyData: policyData,
+			Name:        policyName,
+			PolicyData:  policyData,
+			Description: policyDescription,
 		}
 
 		client, err := http.NewClient()
@@ -291,6 +293,21 @@ var policyAddCmd = &cobra.Command{
 
 		fmt.Println("Policy created")
 	},
+}
+
+func defaultEnvEditor() string {
+	editor := os.Getenv("EDITOR")
+
+	if len(editor) == 0 {
+		editor = "vi"
+	}
+	if !strings.Contains(editor, " ") {
+		return []string{editor}[0]
+	}
+	if !strings.ContainsAny(editor, "\"'\\") {
+		return strings.Split(editor, " ")[0]
+	}
+	return editor
 }
 
 func findPolicyByName(name string) (models.Policy, error) {
@@ -341,6 +358,7 @@ func init() {
 
 	policyAddCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
 	policyAddCmd.MarkFlagRequired("name")
+	policyAddCmd.Flags().StringVarP(&policyDescription, "description", "d", "", "Policy Description")
 
 }
 

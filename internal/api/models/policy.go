@@ -3,8 +3,9 @@ package models
 import "time"
 
 type CreatePolicyRequest struct {
-	Name       string     `json:"name" binding:"required"`
-	PolicyData PolicyData `json:"policy_data" binding:"required"`
+	Name        string     `json:"name" binding:"required"`
+	Description string     `json:"description"`
+	PolicyData  PolicyData `json:"policy_data" binding:"required"`
 }
 
 type Policy struct {

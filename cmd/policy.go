@@ -3,12 +3,17 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
 	"github.com/spf13/cobra"
+	"k8s.io/kubectl/pkg/util/term"
 )
 
 // policyCmd represents the policy command
@@ -214,6 +219,97 @@ var policyShowCmd = &cobra.Command{
 	},
 }
 
+// policyAddCmd represents the policy show command
+var policyAddCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Create a policy",
+	Run: func(cmd *cobra.Command, args []string) {
+		if policyName == "" {
+			log.Fatalf("error: invalid policy name")
+		}
+
+		fpath := os.TempDir() + "/policyName.json"
+		f, err := os.Create(fpath)
+		if err != nil {
+			fmt.Printf("could not create a policy file %s\n", err)
+			return
+		}
+		f.Close()
+
+		file, err := os.OpenFile(fpath, os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			fmt.Printf("could not create a policy file %s\n", err)
+			return
+		}
+
+		file.WriteString(policyTemplate())
+		file.Close()
+
+		c := exec.Command(defaultEnvEditor(), fpath)
+		c.Stdin = os.Stdin
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+
+		if err := (term.TTY{In: os.Stdin, TryDev: true}).Safe(c.Run); err != nil {
+			if err, ok := err.(*exec.Error); ok {
+				if err.Err == exec.ErrNotFound {
+					fmt.Printf("unable to launch the editor")
+					return
+				}
+			}
+			fmt.Printf("there was a problem with the editor")
+			return
+		}
+		jsonFile, err := os.Open(fpath)
+		if err != nil {
+			fmt.Printf("could not open policy file %s\n", err)
+			return
+		}
+		defer jsonFile.Close()
+		byteValue, err := ioutil.ReadAll(jsonFile)
+		if err != nil {
+			fmt.Printf("could not open policy file %s\n", err)
+			return
+		}
+
+		var policyData models.PolicyData
+
+		json.Unmarshal(byteValue, &policyData)
+
+		req := models.CreatePolicyRequest{
+			Name:        policyName,
+			PolicyData:  policyData,
+			Description: policyDescription,
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		err = client.Request("POST", "policies", nil, req)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		fmt.Println("Policy created")
+	},
+}
+
+func defaultEnvEditor() string {
+	editor := os.Getenv("EDITOR")
+
+	if len(editor) == 0 {
+		editor = "vi"
+	}
+	if !strings.Contains(editor, " ") {
+		return []string{editor}[0]
+	}
+	if !strings.ContainsAny(editor, "\"'\\") {
+		return strings.Split(editor, " ")[0]
+	}
+	return editor
+}
+
 func findPolicyByName(name string) (models.Policy, error) {
 	client, err := http.NewClient()
 
@@ -239,6 +335,7 @@ func init() {
 	policyCmd.AddCommand(policyShowCmd)
 	policyCmd.AddCommand(policyAttachCmd)
 	policyCmd.AddCommand(policyDettachCmd)
+	policyCmd.AddCommand(policyAddCmd)
 
 	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
 	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
@@ -259,4 +356,40 @@ func init() {
 	policyDettachCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	policyDettachCmd.MarkFlagRequired("socket_id")
 
+	policyAddCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
+	policyAddCmd.MarkFlagRequired("name")
+	policyAddCmd.Flags().StringVarP(&policyDescription, "description", "d", "", "Policy Description")
+
+}
+
+func policyTemplate() string {
+	return `{
+	"version": "v1",
+	"action": [
+		"database",
+		"ssh",
+		"http"
+	],
+	"condition": {
+		"who": {
+		"email": [
+			"example@border0.com"
+		],
+		"domain": [
+			"example.com"
+		]
+		},
+		"where": {
+			"allowed_ip": [],
+			"country": [],
+			"country_not": []
+		},
+		"when": {
+			"after": "1970-01-01T00:00:00Z",
+			"before": null,
+			"time_of_day_after": "00:00:00 UTC",
+			"time_of_day_before": "23:59:59 UTC"
+		}
+	}
+}`
 }

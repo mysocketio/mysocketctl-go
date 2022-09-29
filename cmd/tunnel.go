@@ -262,9 +262,11 @@ func init() {
 	tunnelConnectCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	tunnelConnectCmd.Flags().StringVarP(&hostname, "host", "", "127.0.0.1", "Target host: Control where inbound traffic goes. Default localhost")
 	tunnelConnectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to mysocket.io")
-	tunnelConnectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Start a local SSH server to accept SSH sessions on this host")
+	tunnelConnectCmd.Flags().BoolVarP(&localssh, "localssh", "", false, "Start a local SSH server to accept SSH sessions on this host")
+	tunnelConnectCmd.Flags().BoolVarP(&localssh, "sshserver", "l", false, "Start a local SSH server to accept SSH sessions on this host")
 	tunnelConnectCmd.MarkFlagRequired("tunnel_id")
 	tunnelConnectCmd.MarkFlagRequired("socket_id")
+	tunnelConnectCmd.Flags().MarkDeprecated("localssh", "use --sshserver instead")
 	tunnelConnectCmd.Flags().BoolVarP(&httpserver, "httpserver", "", false, "Start a local http server to accept http connections on this host")
 	tunnelConnectCmd.Flags().StringVarP(&httpserver_dir, "httpserver_dir", "", "", "Directory to serve http connections on this host")
 

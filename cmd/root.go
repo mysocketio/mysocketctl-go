@@ -47,6 +47,7 @@ var (
 	tunnelID               string
 	policyName             string
 	policyDescription      string
+	policyFile             string
 	identityFile           string
 	cloudauth_addresses    string
 	cloudauth_domains      string

@@ -244,7 +244,6 @@ var policyEditCmd = &cobra.Command{
 			}
 
 		} else {
-
 			fpath := os.TempDir() + policyName + ".json"
 			f, err := os.Create(fpath)
 			if err != nil {
@@ -297,7 +296,10 @@ var policyEditCmd = &cobra.Command{
 
 		var policyData models.PolicyData
 
-		json.Unmarshal(data, &policyData)
+		err = json.Unmarshal(data, &policyData)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
 
 		req := models.UpdatePolicyRequest{
 			PolicyData: &policyData,
@@ -377,6 +379,10 @@ var policyAddCmd = &cobra.Command{
 			}
 			defer jsonFile.Close()
 			data, err = ioutil.ReadAll(jsonFile)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
+			}
 		}
 
 		if err != nil {

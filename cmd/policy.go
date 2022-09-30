@@ -219,54 +219,172 @@ var policyShowCmd = &cobra.Command{
 	},
 }
 
-// policyAddCmd represents the policy show command
-var policyAddCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Create a policy",
+// policyEditCmd represents the policy edit command
+var policyEditCmd = &cobra.Command{
+	Use:   "edit",
+	Short: "Edit a policy",
 	Run: func(cmd *cobra.Command, args []string) {
 		if policyName == "" {
 			log.Fatalf("error: invalid policy name")
 		}
 
-		fpath := os.TempDir() + "/policyName.json"
-		f, err := os.Create(fpath)
-		if err != nil {
-			fmt.Printf("could not create a policy file %s\n", err)
-			return
-		}
-		f.Close()
+		var data []byte
+		var err error
 
-		file, err := os.OpenFile(fpath, os.O_APPEND|os.O_WRONLY, 0600)
+		policy, err := findPolicyByName(policyName)
 		if err != nil {
-			fmt.Printf("could not create a policy file %s\n", err)
-			return
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
 		}
 
-		file.WriteString(policyTemplate())
-		file.Close()
-
-		c := exec.Command(defaultEnvEditor(), fpath)
-		c.Stdin = os.Stdin
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-
-		if err := (term.TTY{In: os.Stdin, TryDev: true}).Safe(c.Run); err != nil {
-			if err, ok := err.(*exec.Error); ok {
-				if err.Err == exec.ErrNotFound {
-					fmt.Printf("unable to launch the editor")
-					return
-				}
+		if policyFile != "" {
+			data, err = os.ReadFile(policyFile)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
 			}
-			fmt.Printf("there was a problem with the editor")
-			return
+
+		} else {
+			fpath := os.TempDir() + policyName + ".json"
+			f, err := os.Create(fpath)
+			if err != nil {
+				fmt.Printf("could not create a policy file %s\n", err)
+				return
+			}
+			f.Close()
+
+			file, err := os.OpenFile(fpath, os.O_APPEND|os.O_WRONLY, 0600)
+			if err != nil {
+				fmt.Printf("could not create a policy file %s\n", err)
+				return
+			}
+
+			bytes, err := json.MarshalIndent(policy.PolicyData, "", "  ")
+			if err != nil {
+				fmt.Println("Can't serislize", err)
+			}
+
+			file.WriteString(string(bytes))
+			file.Close()
+
+			c := exec.Command(defaultEnvEditor(), fpath)
+			c.Stdin = os.Stdin
+			c.Stdout = os.Stdout
+			c.Stderr = os.Stderr
+
+			if err := (term.TTY{In: os.Stdin, TryDev: true}).Safe(c.Run); err != nil {
+				if err, ok := err.(*exec.Error); ok {
+					if err.Err == exec.ErrNotFound {
+						fmt.Printf("unable to launch the editor")
+						return
+					}
+				}
+				fmt.Printf("there was a problem with the editor")
+				return
+			}
+			jsonFile, err := os.Open(fpath)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
+			}
+			defer jsonFile.Close()
+			data, err = ioutil.ReadAll(jsonFile)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
+			}
 		}
-		jsonFile, err := os.Open(fpath)
+
+		var policyData models.PolicyData
+
+		err = json.Unmarshal(data, &policyData)
 		if err != nil {
-			fmt.Printf("could not open policy file %s\n", err)
-			return
+			log.Fatalf("error: %v", err)
 		}
-		defer jsonFile.Close()
-		byteValue, err := ioutil.ReadAll(jsonFile)
+
+		req := models.UpdatePolicyRequest{
+			PolicyData: &policyData,
+		}
+
+		client, err := http.NewClient()
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
+		err = client.Request("PUT", "policy/"+policy.ID, nil, req)
+		if err != nil {
+			log.Fatalf(fmt.Sprintf("Error: %v", err))
+		}
+
+		fmt.Println("Policy Updated")
+	},
+}
+
+// policyAddCmd represents the policy add command
+var policyAddCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Create a policy",
+	Run: func(cmd *cobra.Command, args []string) {
+
+		var data []byte
+		var err error
+
+		if policyName == "" {
+			log.Fatalf("error: invalid policy name")
+		}
+
+		if policyFile != "" {
+			data, err = os.ReadFile(policyFile)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
+			}
+
+		} else {
+
+			fpath := os.TempDir() + "/" + policyName + ".json"
+			f, err := os.Create(fpath)
+			if err != nil {
+				fmt.Printf("could not create a policy file %s\n", err)
+				return
+			}
+			f.Close()
+
+			file, err := os.OpenFile(fpath, os.O_APPEND|os.O_WRONLY, 0600)
+			if err != nil {
+				fmt.Printf("could not create a policy file %s\n", err)
+				return
+			}
+
+			file.WriteString(policyTemplate())
+			file.Close()
+
+			c := exec.Command(defaultEnvEditor(), fpath)
+			c.Stdin = os.Stdin
+			c.Stdout = os.Stdout
+			c.Stderr = os.Stderr
+
+			if err := (term.TTY{In: os.Stdin, TryDev: true}).Safe(c.Run); err != nil {
+				if err, ok := err.(*exec.Error); ok {
+					if err.Err == exec.ErrNotFound {
+						fmt.Printf("unable to launch the editor")
+						return
+					}
+				}
+				fmt.Printf("there was a problem with the editor")
+				return
+			}
+			jsonFile, err := os.Open(fpath)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
+			}
+			defer jsonFile.Close()
+			data, err = ioutil.ReadAll(jsonFile)
+			if err != nil {
+				fmt.Printf("could not open policy file %s\n", err)
+				return
+			}
+		}
+
 		if err != nil {
 			fmt.Printf("could not open policy file %s\n", err)
 			return
@@ -274,7 +392,7 @@ var policyAddCmd = &cobra.Command{
 
 		var policyData models.PolicyData
 
-		json.Unmarshal(byteValue, &policyData)
+		json.Unmarshal(data, &policyData)
 
 		req := models.CreatePolicyRequest{
 			Name:        policyName,
@@ -336,6 +454,7 @@ func init() {
 	policyCmd.AddCommand(policyAttachCmd)
 	policyCmd.AddCommand(policyDettachCmd)
 	policyCmd.AddCommand(policyAddCmd)
+	policyCmd.AddCommand(policyEditCmd)
 
 	policysListCmd.Flags().Int64Var(&perPage, "per_page", 100, "The number of results to return per page.")
 	policysListCmd.Flags().Int64Var(&page, "page", 0, "The page of results to return.")
@@ -359,6 +478,11 @@ func init() {
 	policyAddCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
 	policyAddCmd.MarkFlagRequired("name")
 	policyAddCmd.Flags().StringVarP(&policyDescription, "description", "d", "", "Policy Description")
+	policyAddCmd.Flags().StringVarP(&policyFile, "policy-file", "f", "", "Policy Definition File")
+
+	policyEditCmd.Flags().StringVarP(&policyName, "name", "n", "", "Policy Name")
+	policyEditCmd.MarkFlagRequired("name")
+	policyEditCmd.Flags().StringVarP(&policyFile, "policy-file", "f", "", "Policy Definition File")
 
 }
 

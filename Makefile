@@ -53,6 +53,7 @@ release:
 
 
 moddownload:
+	go mod tidy
 	go mod download
 
 build:

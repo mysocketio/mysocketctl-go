@@ -360,6 +360,9 @@ func init() {
 		return getSockets(toComplete), cobra.ShellCompDirectiveNoFileComp
 	})
 
+	socketCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
+	socketCmd.AddCommand(policyCmd)
+
 	socketConnectCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")
 	socketConnectCmd.Flags().StringVarP(&identityFile, "identity_file", "i", "", "Identity File")
 	socketConnectCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")

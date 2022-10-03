@@ -55,7 +55,7 @@ func sshServer() string {
 	}
 }
 
-func getSshCert(userId string, socketID string, tunnelID string, accessToken string, numOfRetry int) (s ssh.Signer, err error) {
+func getSshCert(userId string, socketID string, accessToken string, numOfRetry int) (s ssh.Signer, err error) {
 
 	// First check if we already have a mysocket key pair
 
@@ -133,7 +133,7 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 	}
 
 	for i := 1; i <= numOfRetry; i++ {
-		err = client.Request("POST", "socket/"+socketID+"/tunnel/"+tunnelID+"/signkey", &signedCert, newCsr)
+		err = client.Request("POST", "socket/"+socketID+"/signkey", &signedCert, newCsr)
 		if err == nil {
 			break
 		}
@@ -166,9 +166,14 @@ func getSshCert(userId string, socketID string, tunnelID string, accessToken str
 }
 
 func SshConnect(userID string, socketID string, tunnelID string, port int, targethost string, identityFile string, proxyHost string, version string, localhttp, localssh bool, sshCa string, accessToken, httpdir string) error {
-	tunnel, err := api.NewAPI(api.WithAccessToken(accessToken)).GetTunnel(context.Background(), socketID, tunnelID)
-	if err != nil {
-		return fmt.Errorf("error getting tunnel: %v", err)
+	var tunnel *models.Tunnel
+	var err error
+
+	if tunnelID != "" {
+		tunnel, err = api.NewAPI(api.WithAccessToken(accessToken)).GetTunnel(context.Background(), socketID, tunnelID)
+		if err != nil {
+			return fmt.Errorf("error getting tunnel: %v", err)
+		}
 	}
 
 	sshConfig := &ssh.ClientConfig{
@@ -236,7 +241,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 		// We'll use that to authenticate. This returns a signer object.
 		// for now we'll just add it to the signers list.
 		// In future, this is the only auth method we should use.
-		sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken, 10)
+		sshCert, err := getSshCert(userID, socketID, accessToken, 10)
 		if err != nil {
 			return ErrFailedToGetSshCert
 		}
@@ -281,9 +286,16 @@ func sshConnect(proxyDialer proxy.Dialer, sshConfig *ssh.ClientConfig, tunnel *m
 	defer func() { done <- true }()
 	go KeepAlive(sshClient, done)
 
-	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", tunnel.LocalPort))
+	var listenPort int
+	if tunnel == nil {
+		listenPort = 0
+	} else {
+		listenPort = tunnel.LocalPort
+	}
+
+	listener, err := sshClient.Listen("tcp", fmt.Sprintf("localhost:%d", listenPort))
 	if err != nil {
-		log.Printf("Listen open port ON remote server on port %d error: %s", tunnel.LocalPort, err)
+		log.Printf("Listen open port ON remote server on port %d error: %s", listenPort, err)
 		return
 	}
 	defer listener.Close()

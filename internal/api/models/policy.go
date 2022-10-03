@@ -8,6 +8,12 @@ type CreatePolicyRequest struct {
 	PolicyData  PolicyData `json:"policy_data" binding:"required"`
 }
 
+type UpdatePolicyRequest struct {
+	Name        *string     `json:"name"`
+	Description *string     `json:"description"`
+	PolicyData  *PolicyData `json:"policy_data" binding:"required"`
+}
+
 type Policy struct {
 	ID          string     `json:"id"`
 	Name        string     `json:"name"`

@@ -126,7 +126,7 @@ func (c *Connection) Connect(ctx context.Context, userID string, socketID string
 		// We'll use that to authenticate. This returns a signer object.
 		// for now we'll just add it to the signers list.
 		// In future, this is the only auth method we should use.
-		sshCert, err := getSshCert(userID, socketID, tunnelID, accessToken, 1)
+		sshCert, err := getSshCert(userID, socketID, accessToken, 1)
 		if err != nil {
 			return ErrFailedToGetSshCert
 		}

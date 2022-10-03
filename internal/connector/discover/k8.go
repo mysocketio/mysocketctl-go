@@ -77,8 +77,6 @@ func (s *K8Discover) buildSocket(connectorName string, group config.K8Plugin, se
 	socket.TargetHostname = service.Spec.ClusterIP
 
 	switch service.Annotations["mysocket.io/socketType"] {
-	case "tcp":
-		socket.SocketType = "tcp"
 	case "http":
 		socket.SocketType = "http"
 	case "ssh":

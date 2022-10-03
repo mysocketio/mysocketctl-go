@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
@@ -248,6 +249,11 @@ var policyEditCmd = &cobra.Command{
 			}
 
 		} else {
+			if strings.Contains(runtime.GOOS, "windows") {
+				fmt.Printf("not available on windows. Please use the --policy-file or -f option")
+				return
+			}
+
 			fpath := os.TempDir() + policyName + ".json"
 			f, err := os.Create(fpath)
 			if err != nil {
@@ -343,6 +349,10 @@ var policyAddCmd = &cobra.Command{
 			}
 
 		} else {
+			if strings.Contains(runtime.GOOS, "windows") {
+				fmt.Printf("not available on windows. Please use the --policy-file or -f option")
+				return
+			}
 
 			fpath := os.TempDir() + "/" + policyName + ".json"
 			f, err := os.Create(fpath)

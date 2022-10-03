@@ -214,12 +214,7 @@ var policyShowCmd = &cobra.Command{
 			return
 		}
 
-		t = table.NewWriter()
-		t.AppendHeader(table.Row{"Policy Data"})
-		t.AppendRow(table.Row{string(jsonData)})
-		t.SetStyle(table.StyleLight)
-
-		fmt.Printf("%s\n", t.Render())
+		fmt.Printf("%s\n", string(jsonData))
 
 	},
 }

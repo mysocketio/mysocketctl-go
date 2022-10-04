@@ -126,8 +126,8 @@ var socketCreateCmd = &cobra.Command{
 		}
 
 		socketType := strings.ToLower(socketType)
-		if socketType != "http" && socketType != "https" && socketType != "tcp" && socketType != "tls" && socketType != "ssh" && socketType != "database" {
-			log.Fatalf("error: --type should be either http, https, ssh, database, tcp or tls")
+		if socketType != "http" && socketType != "https" && socketType != "tls" && socketType != "ssh" && socketType != "database" {
+			log.Fatalf("error: --type should be either http, https, ssh, database or tls")
 		}
 
 		if socketType == "database" {
@@ -345,7 +345,7 @@ func init() {
 	socketCreateCmd.Flags().StringVarP(&upstream_password, "upstream_password", "k", "", "Upstream password used to connect to upstream database")
 	socketCreateCmd.Flags().StringVarP(&upstream_http_hostname, "upstream_http_hostname", "", "", "Upstream http hostname")
 	socketCreateCmd.Flags().StringVarP(&upstream_type, "upstream_type", "", "", "Upstream type: http, https for http sockets or mysql, postgres for database sockets")
-	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tcp, tls, database")
+	socketCreateCmd.Flags().StringVarP(&socketType, "type", "t", "http", "Socket type: http, https, ssh, tls, database")
 	socketCreateCmd.MarkFlagRequired("name")
 
 	socketDeleteCmd.Flags().StringVarP(&socketID, "socket_id", "s", "", "Socket ID")

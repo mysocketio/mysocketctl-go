@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -118,11 +118,6 @@ var socketCreateCmd = &cobra.Command{
 			if domain != "" {
 				allowedEmailDomains = append(allowedEmailDomains, domain)
 			}
-		}
-		if len(allowedEmailDomains) == 0 && len(allowedEmailAddresses) == 0 {
-			log.Println("No Email or Email Domains were provided.")
-			log.Println("No-one will have access.")
-			os.Exit(1)
 		}
 
 		socketType := strings.ToLower(socketType)
@@ -368,8 +363,10 @@ func init() {
 	socketConnectCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number")
 	socketConnectCmd.Flags().StringVarP(&hostname, "host", "", "127.0.0.1", "Target host: Control where inbound traffic goes. Default localhost")
 	socketConnectCmd.Flags().StringVarP(&proxyHost, "proxy", "", "", "Proxy host used for connection to border0.com")
-	socketConnectCmd.Flags().BoolVarP(&localssh, "localssh", "l", false, "Start a local SSH server to accept SSH sessions on this host")
+	tunnelConnectCmd.Flags().BoolVarP(&localssh, "localssh", "", false, "Start a local SSH server to accept SSH sessions on this host")
+	tunnelConnectCmd.Flags().BoolVarP(&localssh, "sshserver", "l", false, "Start a local SSH server to accept SSH sessions on this host")
 	socketConnectCmd.MarkFlagRequired("socket_id")
+	tunnelConnectCmd.Flags().MarkDeprecated("localssh", "use --sshserver instead")
 	socketConnectCmd.Flags().BoolVarP(&httpserver, "httpserver", "", false, "Start a local http server to accept http connections on this host")
 	socketConnectCmd.Flags().StringVarP(&httpserver_dir, "httpserver_dir", "", "", "Directory to serve http connections on this host")
 

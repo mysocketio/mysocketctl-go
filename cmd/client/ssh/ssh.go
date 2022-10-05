@@ -64,10 +64,11 @@ var sshCmd = &cobra.Command{
 			}
 		}
 
-		hostname, err := client.PickHost(hostname, enum.SSHSocket, enum.TLSSocket)
+		pickedHost, err := client.PickHost(hostname, enum.SSHSocket, enum.TLSSocket)
 		if err != nil {
 			return err
 		}
+		hostname = pickedHost.Hostname()
 
 		token, claims, err := client.MTLSLogin(hostname)
 		if err != nil {

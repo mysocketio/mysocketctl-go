@@ -18,6 +18,19 @@ type ClientResource struct {
 	Domains       []string `json:"domains,omitempty"`
 }
 
+func (c ClientResource) Hostname() string {
+	return c.FirstDomain("")
+}
+
+func (c ClientResource) HasDomain(tryToFind string) bool {
+	for _, domain := range c.Domains {
+		if tryToFind == domain {
+			return true
+		}
+	}
+	return false
+}
+
 func (c ClientResource) FirstDomain(defaultValue string) string {
 	domain := defaultValue
 	if len(c.Domains) > 0 {

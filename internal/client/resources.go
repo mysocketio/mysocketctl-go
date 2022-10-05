@@ -295,43 +295,42 @@ func EnterDBName(inputDBName, suggestedDBname string) (enteredDBName string, err
 	return enteredDBName, nil
 }
 
-func PickHost(inputHost string, socketTypes ...string) (pickedHost string, err error) {
-	pickedHost = inputHost
-	if pickedHost == "" {
-		var token string
-		token, err = ReadTokenOrAskToLogIn()
-		if err != nil {
-			return
-		}
-
-		var resources models.ClientResources
-		resources, err = FetchResources(token, socketTypes...)
-		if err != nil {
-			err = fmt.Errorf("failed fetching client resources: %w", err)
-			return
-		}
-
-		blue := color.New(color.FgBlue)
-		answers := make(map[string]string)
-
-		var hosts []string
-		for _, res := range resources.Resources {
-			hostToShow := res.DomainsToString() + " " + blue.Sprintf("[%s]", strings.Split(res.Description, ";")[0])
-			hostToReturn := res.FirstDomain("")
-			answers[hostToShow] = hostToReturn
-			hosts = append(hosts, hostToShow)
-		}
-
-		if err = survey.AskOne(&survey.Select{
-			Message: "choose a host:",
-			Options: hosts,
-		}, &pickedHost); err != nil {
-			err = fmt.Errorf("couldn't capture host input: %w", err)
-			return
-		}
-		pickedHost = answers[pickedHost]
+func PickHost(inputHost string, socketTypes ...string) (models.ClientResource, error) {
+	token, err := ReadTokenOrAskToLogIn()
+	if err != nil {
+		return models.ClientResource{}, err
 	}
-	return pickedHost, nil
+	resources, err := FetchResources(token, socketTypes...)
+	if err != nil {
+		return models.ClientResource{}, fmt.Errorf("failed fetching client resources: %w", err)
+	}
+
+	if inputHost != "" {
+		for _, res := range resources.Resources {
+			if res.HasDomain(inputHost) {
+				return res, nil
+			}
+		}
+	}
+
+	blue := color.New(color.FgBlue)
+	answers := make(map[string]models.ClientResource)
+
+	var hosts []string
+	for _, res := range resources.Resources {
+		hostToShow := res.DomainsToString() + " " + blue.Sprintf("[%s]", strings.Split(res.Description, ";")[0])
+		answers[hostToShow] = res
+		hosts = append(hosts, hostToShow)
+	}
+
+	var picked string
+	if err = survey.AskOne(&survey.Select{
+		Message: "choose a host:",
+		Options: hosts,
+	}, &picked); err != nil {
+		return models.ClientResource{}, fmt.Errorf("couldn't capture host input: %w", err)
+	}
+	return answers[picked], nil
 }
 
 func PickResourceTypes(inputFilter string) (pickedTypes []string, err error) {

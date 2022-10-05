@@ -13,11 +13,11 @@ var mycliCmd = &cobra.Command{
 	Use:   "db:mycli",
 	Short: "Connect to a database socket with mycli client",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		hostname, err = client.PickHost(hostname, enum.DatabaseSocket)
+		pickedHost, err := client.PickHost(hostname, enum.DatabaseSocket)
 		if err != nil {
 			return err
 		}
+		hostname = pickedHost.Hostname()
 
 		// Let's read preferences from the config file
 		pref, err := preference.Read()

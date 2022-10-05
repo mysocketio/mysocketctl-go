@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"runtime"
 	"strings"
 
@@ -254,7 +255,8 @@ var policyEditCmd = &cobra.Command{
 				return
 			}
 
-			fpath := os.TempDir() + policyName + ".json"
+			// temporary policy parth and filename
+			fpath := path.Join(os.TempDir(), policyName+".json")
 			f, err := os.Create(fpath)
 			if err != nil {
 				fmt.Printf("could not create a policy file %s\n", err)
@@ -280,6 +282,9 @@ var policyEditCmd = &cobra.Command{
 			c.Stdin = os.Stdin
 			c.Stdout = os.Stdout
 			c.Stderr = os.Stderr
+
+			// we defer the removal of temporary prolicy file
+			defer os.Remove(fpath)
 
 			if err := (term.TTY{In: os.Stdin, TryDev: true}).Safe(c.Run); err != nil {
 				if err, ok := err.(*exec.Error); ok {

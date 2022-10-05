@@ -39,11 +39,11 @@ var dbCmd = &cobra.Command{
 	Use:   "db",
 	Short: "Pick a socket host and connect to it as a database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		hostname, err = client.PickHost(hostname, enum.DatabaseSocket)
+		pickedHost, err := client.PickHost(hostname, enum.DatabaseSocket)
 		if err != nil {
 			return err
 		}
+		hostname = pickedHost.Hostname()
 
 		// Let's read preferences from the config file
 		pref, err := preference.Read()

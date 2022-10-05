@@ -17,11 +17,11 @@ var dbeaverCmd = &cobra.Command{
 	Use:   "db:dbeaver",
 	Short: "Connect to a database socket with dbeaver",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		hostname, err = client.PickHost(hostname, enum.DatabaseSocket)
+		pickedHost, err := client.PickHost(hostname, enum.DatabaseSocket)
 		if err != nil {
 			return err
 		}
+		hostname = pickedHost.Hostname()
 
 		// Let's read preferences from the config file
 		pref, err := preference.Read()
@@ -80,13 +80,18 @@ var dbeaverCmd = &cobra.Command{
 			"database=" + dbName,
 			"prop.clientCertificateKeyStoreUrl=file:" + keyStorePath,
 			"prop.clientCertificateKeyStorePassword=" + string(keyStorePassword),
-			"driver=mysql5",
+			"driver=mariadb",
 			"user=placeholder",
 			"savePassword=true", // does not ask user for a password on connection
 			"openConsole=true",  // opens the SQL console for this database (also sets connect to true)
 			"prop.useSSL=true",
 			"prop.verifyServerCertificate=false",
 			"prop.requireSSL=false",
+		}
+		if pickedHost.PrivateSocket {
+			// NOTE: temp fix - do this to bypass the error that complains the mismatch between
+			//       private hostname and the CN in certificate (*.edge.mysocket.io)
+			params = append(params, "prop.disableSslHostnameVerification=true")
 		}
 		conn := strings.Join(params, "|")
 

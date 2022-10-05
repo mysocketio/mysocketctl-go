@@ -479,8 +479,8 @@ github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3I
 github.com/opencontainers/image-spec v1.0.2 h1:9yCKha/T5XdGtO0q9Q9a6T5NUCsTn/DrBg0D7ufOcFM=
 github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
-github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0 h1:TVckDDIKzWo9/cPdsvyikdmnnKIPeWgnGoekhQM5zBc=
-github.com/pavel-v-chernykh/keystore-go/v4 v4.3.0/go.mod h1:VxOBKEAW8/EJjil9qwfvVDSljDW0DCoZMD4ezsq9n8U=
+github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.0 h1:y9azNmMzvkNBPyczpNRwaV4bm0U6e7Oyrj7gi2/SNFI=
+github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.0/go.mod h1:lAVhWwbNaveeJmxrxuSTxMgKpF6DjnuVpn6T8WiBwYQ=
 github.com/pelletier/go-toml v1.2.0 h1:T5zMGML61Wp+FlcbWjRDT7yAxhJNAiPPLOFECq181zc=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=

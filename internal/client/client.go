@@ -29,7 +29,7 @@ import (
 	jwt "github.com/golang-jwt/jwt"
 	"github.com/moby/term"
 	"github.com/mysocketio/mysocketctl-go/internal/client/password"
-	"github.com/pavel-v-chernykh/keystore-go/v4"
+	"github.com/pavlo-v-chernykh/keystore-go/v4"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -319,7 +319,6 @@ func GetOrgCert(hostname string) (*x509.Certificate, *rsa.PrivateKey, string, st
 	}
 
 	return cert, key, certPath, keyPath, port, nil
-
 }
 
 func MTLSTokenFile() string {

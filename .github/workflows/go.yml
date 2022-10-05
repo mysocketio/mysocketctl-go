@@ -35,6 +35,7 @@ jobs:
         run: |
           make all
           make release
+          make release-border0
       - name: See dist bin directory
         run: |
           ls -la bin

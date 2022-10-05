@@ -51,6 +51,17 @@ release:
 	python3 ./s3upload.py latest_version.txt ${BUCKET} latest_version.txt
 	rm latest_version.txt
 
+release-border0:
+	python3 ./s3upload.py ./bin/mysocketctl_darwin_amd64 ${BUCKET} darwin_amd64/border0
+	python3 ./s3upload.py ./bin/mysocketctl_darwin_arm64 ${BUCKET} darwin_arm64/border0
+	python3 ./s3upload.py ./bin/mysocketctl_linux_amd64 ${BUCKET} linux_amd64/border0
+
+	#This is for Raspberrypi
+	python3 ./s3upload.py ./bin/mysocketctl_linux_arm64 ${BUCKET} linux_arm64/border0
+
+	#This is for Raspberrypi 32bit
+	python3 ./s3upload.py ./bin/mysocketctl_linux_arm ${BUCKET} linux_arm/border0
+	python3 ./s3upload.py ./bin/mysocketctl_windows_amd64 ${BUCKET} windows_amd64/border0.exe
 
 moddownload:
 	go mod tidy

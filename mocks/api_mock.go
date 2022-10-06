@@ -22,6 +22,54 @@ func (_m *API) EXPECT() *API_Expecter {
 	return &API_Expecter{mock: &_m.Mock}
 }
 
+// AttachPolicies provides a mock function with given fields: ctx, socketID, policyUUIDs
+func (_m *API) AttachPolicies(ctx context.Context, socketID string, policyUUIDs []string) ([]string, error) {
+	ret := _m.Called(ctx, socketID, policyUUIDs)
+
+	var r0 []string
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string) []string); ok {
+		r0 = rf(ctx, socketID, policyUUIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, []string) error); ok {
+		r1 = rf(ctx, socketID, policyUUIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// API_AttachPolicies_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachPolicies'
+type API_AttachPolicies_Call struct {
+	*mock.Call
+}
+
+// AttachPolicies is a helper method to define mock.On call
+//  - ctx context.Context
+//  - socketID string
+//  - policyUUIDs []string
+func (_e *API_Expecter) AttachPolicies(ctx interface{}, socketID interface{}, policyUUIDs interface{}) *API_AttachPolicies_Call {
+	return &API_AttachPolicies_Call{Call: _e.mock.On("AttachPolicies", ctx, socketID, policyUUIDs)}
+}
+
+func (_c *API_AttachPolicies_Call) Run(run func(ctx context.Context, socketID string, policyUUIDs []string)) *API_AttachPolicies_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].([]string))
+	})
+	return _c
+}
+
+func (_c *API_AttachPolicies_Call) Return(_a0 []string, _a1 error) *API_AttachPolicies_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
 // CreateSocket provides a mock function with given fields: ctx, socket
 func (_m *API) CreateSocket(ctx context.Context, socket *models.Socket) (*models.Socket, error) {
 	ret := _m.Called(ctx, socket)
@@ -154,6 +202,54 @@ func (_c *API_DeleteSocket_Call) Return(_a0 error) *API_DeleteSocket_Call {
 	return _c
 }
 
+// DetachPolicies provides a mock function with given fields: ctx, socketID, policyUUIDs
+func (_m *API) DetachPolicies(ctx context.Context, socketID string, policyUUIDs []string) ([]string, error) {
+	ret := _m.Called(ctx, socketID, policyUUIDs)
+
+	var r0 []string
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string) []string); ok {
+		r0 = rf(ctx, socketID, policyUUIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, []string) error); ok {
+		r1 = rf(ctx, socketID, policyUUIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// API_DetachPolicies_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DetachPolicies'
+type API_DetachPolicies_Call struct {
+	*mock.Call
+}
+
+// DetachPolicies is a helper method to define mock.On call
+//  - ctx context.Context
+//  - socketID string
+//  - policyUUIDs []string
+func (_e *API_Expecter) DetachPolicies(ctx interface{}, socketID interface{}, policyUUIDs interface{}) *API_DetachPolicies_Call {
+	return &API_DetachPolicies_Call{Call: _e.mock.On("DetachPolicies", ctx, socketID, policyUUIDs)}
+}
+
+func (_c *API_DetachPolicies_Call) Run(run func(ctx context.Context, socketID string, policyUUIDs []string)) *API_DetachPolicies_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].([]string))
+	})
+	return _c
+}
+
+func (_c *API_DetachPolicies_Call) Return(_a0 []string, _a1 error) *API_DetachPolicies_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
 // GetAccessToken provides a mock function with given fields:
 func (_m *API) GetAccessToken() string {
 	ret := _m.Called()
@@ -232,6 +328,99 @@ func (_c *API_GetOrganizationInfo_Call) Run(run func(ctx context.Context)) *API_
 }
 
 func (_c *API_GetOrganizationInfo_Call) Return(_a0 *models.Organization, _a1 error) *API_GetOrganizationInfo_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+// GetPoliciesBySocketID provides a mock function with given fields: socketID
+func (_m *API) GetPoliciesBySocketID(socketID string) ([]models.Policy, error) {
+	ret := _m.Called(socketID)
+
+	var r0 []models.Policy
+	if rf, ok := ret.Get(0).(func(string) []models.Policy); ok {
+		r0 = rf(socketID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.Policy)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(socketID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// API_GetPoliciesBySocketID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPoliciesBySocketID'
+type API_GetPoliciesBySocketID_Call struct {
+	*mock.Call
+}
+
+// GetPoliciesBySocketID is a helper method to define mock.On call
+//  - socketID string
+func (_e *API_Expecter) GetPoliciesBySocketID(socketID interface{}) *API_GetPoliciesBySocketID_Call {
+	return &API_GetPoliciesBySocketID_Call{Call: _e.mock.On("GetPoliciesBySocketID", socketID)}
+}
+
+func (_c *API_GetPoliciesBySocketID_Call) Run(run func(socketID string)) *API_GetPoliciesBySocketID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *API_GetPoliciesBySocketID_Call) Return(_a0 []models.Policy, _a1 error) *API_GetPoliciesBySocketID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+// GetPolicyByName provides a mock function with given fields: ctx, name
+func (_m *API) GetPolicyByName(ctx context.Context, name string) (*models.Policy, error) {
+	ret := _m.Called(ctx, name)
+
+	var r0 *models.Policy
+	if rf, ok := ret.Get(0).(func(context.Context, string) *models.Policy); ok {
+		r0 = rf(ctx, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Policy)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// API_GetPolicyByName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPolicyByName'
+type API_GetPolicyByName_Call struct {
+	*mock.Call
+}
+
+// GetPolicyByName is a helper method to define mock.On call
+//  - ctx context.Context
+//  - name string
+func (_e *API_Expecter) GetPolicyByName(ctx interface{}, name interface{}) *API_GetPolicyByName_Call {
+	return &API_GetPolicyByName_Call{Call: _e.mock.On("GetPolicyByName", ctx, name)}
+}
+
+func (_c *API_GetPolicyByName_Call) Run(run func(ctx context.Context, name string)) *API_GetPolicyByName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *API_GetPolicyByName_Call) Return(_a0 *models.Policy, _a1 error) *API_GetPolicyByName_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }

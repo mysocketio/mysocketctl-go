@@ -63,8 +63,7 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 
 			ipAddressesToScan := subnetToIps(subnetsToScan)
 
-			if portsToScan != nil && len(portsToScan) > 0 && ipAddressesToScan != nil && len(ipAddressesToScan) > 0 {
-
+			if len(portsToScan) > 0 && len(ipAddressesToScan) > 0 {
 				// channel for jobs
 				jobs := make(chan scanjob)
 				// start workers
@@ -99,6 +98,7 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 
 								socket.AllowedEmailAddresses = group.AllowedEmailAddresses
 								socket.AllowedEmailDomains = group.AllowedEmailDomains
+								socket.PolicyNames = group.PolicyNames
 
 								sockets = append(sockets, socket)
 							}

@@ -203,6 +203,15 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 		socket.BuildConnectorDataByTags()
 		// filter api sockets by connector name
 		if socket.ConnectorData != nil && socket.ConnectorData.Key() != "" {
+			currentSocketPolicies, err := c.mysocketAPI.GetPoliciesBySocketID(socket.SocketID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, policy := range currentSocketPolicies {
+				socket.PolicyNames = append(socket.PolicyNames, policy.Name)
+			}
+
 			socketApiMap[socket.ConnectorData.Key()] = socket
 		}
 
@@ -235,6 +244,11 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 		stringSlicesEqual(apiSocket.AllowedEmailDomains, localSocket.AllowedEmailDomains) &&
 		stringSlicesEqual(localSocket.AllowedEmailDomains, apiSocket.AllowedEmailDomains)
 
+	if len(apiSocket.PolicyNames) > 0 || len(localSocket.PolicyNames) > 0 {
+		check = check && stringSlicesEqual(apiSocket.PolicyNames, localSocket.PolicyNames) &&
+			stringSlicesEqual(localSocket.PolicyNames, apiSocket.PolicyNames)
+	}
+
 	if !check || apiSocket.UpstreamHttpHostname != localSocket.UpstreamHttpHostname ||
 		apiSocket.UpstreamUsername != localSocket.UpstreamUsername ||
 		apiSocket.UpstreamType != localSocket.UpstreamType {
@@ -246,6 +260,12 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 		apiSocket.UpstreamType = ""
 		apiSocket.CloudAuthEnabled = true
 		apiSocket.Tags = localSocket.Tags
+
+		NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, apiSocket, apiSocket.PolicyNames, localSocket.PolicyNames)
+		apiSocket.PolicyNames = localSocket.PolicyNames
+
+		c.logger.Info("api policies", zap.Any("api_policies", apiSocket.PolicyNames))
+		c.logger.Info("local policies", zap.Any("local_policies", localSocket.PolicyNames))
 
 		err := c.mysocketAPI.UpdateSocket(ctx, apiSocket.SocketID, apiSocket)
 		if err != nil {
@@ -379,10 +399,12 @@ func (c *ConnectorCore) CreateSocketAndTunnel(ctx context.Context, s *models.Soc
 		createdSocket.UpstreamType = ""
 		err = c.mysocketAPI.UpdateSocket(ctx, createdSocket.SocketID, *createdSocket)
 		if err != nil {
-			fmt.Println(err)
 			return nil, err
 		}
 	}
+
+	NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, *createdSocket, []string{}, s.PolicyNames)
+	createdSocket.PolicyNames = s.PolicyNames
 
 	return createdSocket, nil
 }
@@ -397,4 +419,13 @@ func stringSlicesEqual(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func StringInSlice(s string, list []string) bool {
+	for _, x := range list {
+		if s == x {
+			return true
+		}
+	}
+	return false
 }

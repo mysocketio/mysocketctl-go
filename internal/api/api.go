@@ -18,6 +18,7 @@ import (
 const APIUrl = "https://api.border0.com/api/v1"
 
 var ErrUnauthorized = errors.New("unauthorized")
+var ErrNotFound = errors.New("not found")
 
 type API interface {
 	GetOrganizationInfo(ctx context.Context) (*models.Organization, error)
@@ -29,6 +30,11 @@ type API interface {
 	UpdateSocket(ctx context.Context, socketID string, socket models.Socket) error
 	DeleteSocket(ctx context.Context, socketID string) error
 	Login(email, password string) (*models.LoginResponse, error)
+	GetPolicyByName(ctx context.Context, name string) (*models.Policy, error)
+	AttachPolicies(ctx context.Context, socketID string, policyUUIDs []string) ([]string, error)
+	DetachPolicies(ctx context.Context, socketID string, policyUUIDs []string) ([]string, error)
+	GetPoliciesBySocketID(socketID string) ([]models.Policy, error)
+
 	GetAccessToken() string
 }
 
@@ -114,6 +120,10 @@ func (a *MysocketAPI) Request(method string, url string, target interface{}, dat
 	if resp.StatusCode == 429 {
 		responseData, _ := ioutil.ReadAll(resp.Body)
 		return fmt.Errorf("rate limit error: %v", string(responseData))
+	}
+
+	if resp.StatusCode == 404 {
+		return ErrNotFound
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 204 {
@@ -247,4 +257,72 @@ func (a *MysocketAPI) Login(email, password string) (*models.LoginResponse, erro
 
 func (a *MysocketAPI) GetAccessToken() string {
 	return a.AccessToken
+}
+
+type actionUpdate struct {
+	Action string `json:"action" binding:"required"`
+	ID     string `json:"id" binding:"required"`
+}
+type actionsRequest struct {
+	Actions []actionUpdate `json:"actions" binding:"required"`
+}
+
+func (a *MysocketAPI) AttachPolicies(ctx context.Context, socketID string, policyUUIDs []string) ([]string, error) {
+	actions := []actionUpdate{}
+	for _, policyUUID := range policyUUIDs {
+		actions = append(actions, actionUpdate{Action: "add", ID: policyUUID})
+	}
+
+	actionRequest := actionsRequest{Actions: actions}
+	url := fmt.Sprintf("socket/%v/policy", socketID)
+
+	var response []string
+	err := a.Request("PUT", url, &response, actionRequest, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func (a *MysocketAPI) DetachPolicies(ctx context.Context, socketID string, policyUUIDs []string) ([]string, error) {
+	actions := []actionUpdate{}
+	for _, policyUUID := range policyUUIDs {
+		actions = append(actions, actionUpdate{Action: "remove", ID: policyUUID})
+	}
+
+	actionRequest := actionsRequest{Actions: actions}
+	url := fmt.Sprintf("socket/%v/policy", socketID)
+
+	var response []string
+	err := a.Request("PUT", url, &response, actionRequest, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func (a *MysocketAPI) GetPolicyByName(ctx context.Context, name string) (*models.Policy, error) {
+	url := fmt.Sprintf("policies/find?name=%s", name)
+
+	var policy *models.Policy
+	err := a.Request("GET", url, &policy, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return policy, nil
+}
+
+func (a *MysocketAPI) GetPoliciesBySocketID(socketID string) ([]models.Policy, error) {
+	url := fmt.Sprintf("policies?socket_id=%s", socketID)
+
+	var policies []models.Policy
+	err := a.Request("GET", url, &policies, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return policies, nil
 }

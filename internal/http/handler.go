@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	download_url = "https://download.edge.mysocket.io"
+	download_url = "https://download.border0.com"
 )
 
 var ErrUnauthorized = errors.New("unaouthorized")
@@ -38,7 +38,7 @@ func apiUrl() string {
 	if os.Getenv("MYSOCKET_API") != "" {
 		return os.Getenv("MYSOCKET_API")
 	} else {
-		return "https://api.mysocket.io"
+		return "https://api.border0.com/api/v1"
 	}
 }
 
@@ -46,7 +46,7 @@ func WebUrl() string {
 	if os.Getenv("MYSOCKET_WEB_URL") != "" {
 		return os.Getenv("MYSOCKET_WEB_URL")
 	} else {
-		return "https://portal.mysocket.io"
+		return "https://portal.border0.com"
 	}
 }
 
@@ -362,25 +362,25 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 	switch osname {
 	case "darwin":
 		if osarch == "amd64" {
-			bin_url = download_url + "/darwin_amd64/mysocketctl"
+			bin_url = download_url + "/darwin_amd64/border0"
 			checksum_url = download_url + "/darwin_amd64/sha256-checksum.txt"
 		} else if osarch == "arm64" {
-			bin_url = download_url + "/darwin_arm64/mysocketctl"
+			bin_url = download_url + "/darwin_arm64/border0"
 			checksum_url = download_url + "/darwin_arm64/sha256-checksum.txt"
 		}
 	case "linux":
 		if osarch == "arm64" {
-			bin_url = download_url + "/linux_arm64/mysocketctl"
+			bin_url = download_url + "/linux_arm64/border0"
 			checksum_url = download_url + "/linux_arm64/sha256-checksum.txt"
 		} else if osarch == "arm" {
-			bin_url = download_url + "/linux_arm/mysocketctl"
+			bin_url = download_url + "/linux_arm/border0"
 			checksum_url = download_url + "/linux_arm/sha256-checksum.txt"
 		} else {
-			bin_url = download_url + "/linux_amd64/mysocketctl"
+			bin_url = download_url + "/linux_amd64/border0"
 			checksum_url = download_url + "/linux_amd64/sha256-checksum.txt"
 		}
 	case "windows":
-		bin_url = download_url + "/windows_amd64/mysocketctl.exe"
+		bin_url = download_url + "/windows_amd64/border0.exe"
 		checksum_url = download_url + "/windows_amd64/sha256-checksum.txt"
 	default:
 		return "", nil, fmt.Errorf("unknown OS: %s", osname)

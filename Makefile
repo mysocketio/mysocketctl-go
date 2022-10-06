@@ -87,6 +87,7 @@ lint:
 
 test:
 	$(GOTEST) -v ./...
+	$(GOCMD) run ./main.go version check
 
 clean:
 	$(GOCLEAN)

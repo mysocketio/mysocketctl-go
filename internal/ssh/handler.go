@@ -51,7 +51,7 @@ func sshServer() string {
 	if os.Getenv("MYSOCKET_SSH") != "" {
 		return os.Getenv("MYSOCKET_SSH")
 	} else {
-		return "ssh.mysocket.io"
+		return "tunnel.border0.com"
 	}
 }
 
@@ -237,7 +237,7 @@ func SshConnect(userID string, socketID string, tunnelID string, port int, targe
 	}
 
 	for {
-		// Let's fetch a short lived signed cert from api.mysocket.io
+		// Let's fetch a short lived signed cert from api.border0.com
 		// We'll use that to authenticate. This returns a signer object.
 		// for now we'll just add it to the signers list.
 		// In future, this is the only auth method we should use.

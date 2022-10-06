@@ -15,7 +15,7 @@ import (
 	mysocketctlhttp "github.com/mysocketio/mysocketctl-go/internal/http"
 )
 
-const APIUrl = "https://api.mysocket.io"
+const APIUrl = "https://api.border0.com/api/v1"
 
 var ErrUnauthorized = errors.New("unauthorized")
 

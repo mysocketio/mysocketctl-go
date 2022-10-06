@@ -42,7 +42,7 @@ func apiUrl() string {
 	if os.Getenv("MYSOCKET_API") != "" {
 		return os.Getenv("MYSOCKET_API")
 	} else {
-		return "https://api.mysocket.io"
+		return "https://api.border0.com/api/v1"
 	}
 }
 

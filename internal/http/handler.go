@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	download_url = "https://download.edge.mysocket.io"
+	download_url = "https://download.border0.com"
 )
 
 var ErrUnauthorized = errors.New("unaouthorized")

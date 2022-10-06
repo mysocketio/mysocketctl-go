@@ -98,7 +98,7 @@ func (s *NetworkFinder) Find(ctx context.Context, cfg config.Config, state Disco
 
 								socket.AllowedEmailAddresses = group.AllowedEmailAddresses
 								socket.AllowedEmailDomains = group.AllowedEmailDomains
-								socket.PolicyNames = group.PolicyNames
+								socket.PolicyNames = group.Policies
 
 								sockets = append(sockets, socket)
 							}

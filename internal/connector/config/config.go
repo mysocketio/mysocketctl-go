@@ -59,7 +59,7 @@ type ConnectorGroups struct {
 	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
-	PolicyNames           []string `mapstructure:"policy_names"`
+	Policies              []string `mapstructure:"policies"`
 }
 
 type K8Plugin struct {
@@ -68,7 +68,7 @@ type K8Plugin struct {
 	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
-	PolicyNames           []string `mapstructure:"policy_names"`
+	Policies              []string `mapstructure:"policies"`
 }
 
 type NetworkPlugin struct {
@@ -78,7 +78,7 @@ type NetworkPlugin struct {
 	AllowedEmailDomains   []string                        `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool                            `mapstructure:"private_socket"`
 	Networks              map[string]NetworkPluginNetwork `mapstructure:"networks"`
-	PolicyNames           []string                        `mapstructure:"policy_names"`
+	Policies              []string                        `mapstructure:"policies"`
 }
 
 type NetworkPluginNetwork struct {

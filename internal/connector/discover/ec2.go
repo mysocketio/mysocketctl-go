@@ -102,7 +102,7 @@ func (s *Ec2Discover) buildSocket(connectorName string, group config.ConnectorGr
 		socket.TargetHostname = *instance.PrivateIpAddress
 	}
 
-	socket.PolicyNames = group.PolicyNames
+	socket.PolicyNames = group.Policies
 	socket.CloudAuthEnabled = true
 
 	socket.Name = buildSocketName(instanceName, connectorName, socket.SocketType)

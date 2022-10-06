@@ -261,13 +261,17 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 		apiSocket.CloudAuthEnabled = true
 		apiSocket.Tags = localSocket.Tags
 
-		NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, apiSocket, apiSocket.PolicyNames, localSocket.PolicyNames)
+		_, err := NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, apiSocket, apiSocket.PolicyNames, localSocket.PolicyNames)
+		if err != nil {
+			c.logger.Error(err.Error(), zap.String("socket_name", apiSocket.Name))
+		}
+
 		apiSocket.PolicyNames = localSocket.PolicyNames
 
 		c.logger.Info("api policies", zap.Any("api_policies", apiSocket.PolicyNames))
 		c.logger.Info("local policies", zap.Any("local_policies", localSocket.PolicyNames))
 
-		err := c.mysocketAPI.UpdateSocket(ctx, apiSocket.SocketID, apiSocket)
+		err = c.mysocketAPI.UpdateSocket(ctx, apiSocket.SocketID, apiSocket)
 		if err != nil {
 			return nil, err
 		}

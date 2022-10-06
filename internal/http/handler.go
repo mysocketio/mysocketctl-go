@@ -362,25 +362,25 @@ func GetLatestBinary(osname string, osarch string) (string, []byte, error) {
 	switch osname {
 	case "darwin":
 		if osarch == "amd64" {
-			bin_url = download_url + "/darwin_amd64/mysocketctl"
+			bin_url = download_url + "/darwin_amd64/border0"
 			checksum_url = download_url + "/darwin_amd64/sha256-checksum.txt"
 		} else if osarch == "arm64" {
-			bin_url = download_url + "/darwin_arm64/mysocketctl"
+			bin_url = download_url + "/darwin_arm64/border0"
 			checksum_url = download_url + "/darwin_arm64/sha256-checksum.txt"
 		}
 	case "linux":
 		if osarch == "arm64" {
-			bin_url = download_url + "/linux_arm64/mysocketctl"
+			bin_url = download_url + "/linux_arm64/border0"
 			checksum_url = download_url + "/linux_arm64/sha256-checksum.txt"
 		} else if osarch == "arm" {
-			bin_url = download_url + "/linux_arm/mysocketctl"
+			bin_url = download_url + "/linux_arm/border0"
 			checksum_url = download_url + "/linux_arm/sha256-checksum.txt"
 		} else {
-			bin_url = download_url + "/linux_amd64/mysocketctl"
+			bin_url = download_url + "/linux_amd64/border0"
 			checksum_url = download_url + "/linux_amd64/sha256-checksum.txt"
 		}
 	case "windows":
-		bin_url = download_url + "/windows_amd64/mysocketctl.exe"
+		bin_url = download_url + "/windows_amd64/border0.exe"
 		checksum_url = download_url + "/windows_amd64/sha256-checksum.txt"
 	default:
 		return "", nil, fmt.Errorf("unknown OS: %s", osname)

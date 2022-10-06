@@ -1,0 +1,48 @@
+name: Manual Build and release
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  manual-build-ubuntu:
+    runs-on: ubuntu-latest
+    env:
+      ENV: "prod"
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: us-east-2
+          role-to-assume: ${{ secrets.MANUAL_BUILD_AND_RELEASE_AWS_PROD_ROLE }}
+          role-duration-seconds: 1200
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.19.1' # The Go version to download (if necessary) and use.
+      - run: go version
+
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-boto3
+      - name: Print Versions
+        run: |
+           go version
+      - name: where am i?
+        run: |
+          pwd
+          ls
+      - name: Run Make release
+        run: |
+          make all
+          make release
+          make release-border0
+      - name: See dist bin directory
+        run: |
+          ls -la bin
+          pwd

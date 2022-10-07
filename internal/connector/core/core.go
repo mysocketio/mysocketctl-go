@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -203,12 +204,7 @@ func (c *ConnectorCore) SocketsCoreHandler(ctx context.Context, socketsToUpdate 
 		socket.BuildConnectorDataByTags()
 		// filter api sockets by connector name
 		if socket.ConnectorData != nil && socket.ConnectorData.Key() != "" {
-			currentSocketPolicies, err := c.mysocketAPI.GetPoliciesBySocketID(socket.SocketID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, policy := range currentSocketPolicies {
+			for _, policy := range socket.Policies {
 				socket.PolicyNames = append(socket.PolicyNames, policy.Name)
 			}
 
@@ -261,22 +257,19 @@ func (c *ConnectorCore) CheckAndUpdateSocket(ctx context.Context, apiSocket, loc
 		apiSocket.CloudAuthEnabled = true
 		apiSocket.Tags = localSocket.Tags
 
-		_, err := NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, apiSocket, apiSocket.PolicyNames, localSocket.PolicyNames)
+		_, err := NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, apiSocket, localSocket.PolicyNames)
 		if err != nil {
 			c.logger.Error(err.Error(), zap.String("socket_name", apiSocket.Name))
 		}
 
 		apiSocket.PolicyNames = localSocket.PolicyNames
 
-		c.logger.Info("api policies", zap.Any("api_policies", apiSocket.PolicyNames))
-		c.logger.Info("local policies", zap.Any("local_policies", localSocket.PolicyNames))
-
 		err = c.mysocketAPI.UpdateSocket(ctx, apiSocket.SocketID, apiSocket)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Printf("socket updated from local to api %v", apiSocket.Name)
+		c.logger.Info("socket updated from local to api", zap.String("socket_name", apiSocket.Name))
 	}
 
 	return &apiSocket, nil
@@ -407,13 +400,16 @@ func (c *ConnectorCore) CreateSocketAndTunnel(ctx context.Context, s *models.Soc
 		}
 	}
 
-	NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, *createdSocket, []string{}, s.PolicyNames)
+	NewPolicyManager(c.logger, c.mysocketAPI).ApplyPolicies(ctx, *createdSocket, s.PolicyNames)
 	createdSocket.PolicyNames = s.PolicyNames
 
 	return createdSocket, nil
 }
 
 func stringSlicesEqual(a, b []string) bool {
+	sort.Strings(a)
+	sort.Strings(b)
+
 	if len(a) != len(b) {
 		return false
 	}

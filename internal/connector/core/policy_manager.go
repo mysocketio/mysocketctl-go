@@ -21,8 +21,8 @@ func NewPolicyManager(logger *zap.Logger, api api.API) *PolicyManager {
 	return &PolicyManager{api, logger}
 }
 
-func (p *PolicyManager) ApplyPolicies(ctx context.Context, socket models.Socket, apiPolicies, localPolicies []string) ([]string, error) {
-	if len(localPolicies) == 0 && len(apiPolicies) == 0 {
+func (p *PolicyManager) ApplyPolicies(ctx context.Context, socket models.Socket, localPolicies []string) ([]string, error) {
+	if len(localPolicies) == 0 {
 		return nil, ErrEmptyPolicyList
 	}
 
@@ -50,14 +50,9 @@ func (p *PolicyManager) ApplyPolicies(ctx context.Context, socket models.Socket,
 	}
 
 	// calculate the policies to detach
-	if len(apiPolicies) > 0 {
-		currentSocketPolicies, err := p.mysocketAPI.GetPoliciesBySocketID(socket.SocketID)
-		if err != nil {
-			return nil, err
-		}
-
+	if len(socket.Policies) > 0 {
 		var policiesToDetach []string
-		for _, policy := range currentSocketPolicies {
+		for _, policy := range socket.Policies {
 			if !StringInSlice(policy.Name, localPolicies) {
 				policiesToDetach = append(policiesToDetach, policy.ID)
 			}

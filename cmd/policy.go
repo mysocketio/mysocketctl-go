@@ -529,9 +529,7 @@ func policyTemplate() string {
 	}
 
 	// Also let's get yesterday's date
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02T15:04:05Z")
-	// set expire date to 3 years from now
-	expireDate := time.Now().AddDate(3, 0, 0).Format("2006-01-02T15:04:05Z")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 
 	return fmt.Sprintf(`{
 	"version": "v1",
@@ -556,10 +554,10 @@ func policyTemplate() string {
 		},
 		"when": {
 			"after": "%s",
-			"before": "%s",
+			"before": null,
 			"time_of_day_after": "00:00:00 UTC",
 			"time_of_day_before": "23:59:59 UTC"
 		}
 	}
-}`, adminEmail, yesterday, expireDate)
+}`, adminEmail, yesterday)
 }

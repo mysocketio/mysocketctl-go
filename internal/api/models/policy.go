@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 type CreatePolicyRequest struct {
 	Name        string     `json:"name" binding:"required"`
 	Description string     `json:"description"`
@@ -48,10 +46,10 @@ type ConditionWhere struct {
 type ConditionWhat struct{}
 
 type ConditionWhen struct {
-	After           *time.Time `json:"after,omitempty" mapstructure:"after"`
-	Before          *time.Time `json:"before,omitempty" mapstructure:"before"`
-	TimeOfDayAfter  string     `json:"time_of_day_after,omitempty" mapstructure:"time_of_day_after"`
-	TimeOfDayBefore string     `json:"time_of_day_before,omitempty" mapstructure:"time_of_day_before"`
+	After           string `json:"after,omitempty" mapstructure:"after"`
+	Before          string `json:"before,omitempty" mapstructure:"before"`
+	TimeOfDayAfter  string `json:"time_of_day_after,omitempty" mapstructure:"time_of_day_after"`
+	TimeOfDayBefore string `json:"time_of_day_before,omitempty" mapstructure:"time_of_day_before"`
 }
 
 type PolicyActionUpdateRequest struct {

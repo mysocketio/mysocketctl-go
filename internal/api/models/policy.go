@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 type CreatePolicyRequest struct {
 	Name        string     `json:"name" binding:"required"`
 	Description string     `json:"description"`
@@ -23,15 +21,15 @@ type Policy struct {
 }
 
 type PolicyData struct {
+	Version   string    `json:"version"`
 	Action    []string  `json:"action" mapstructure:"action"`
 	Condition Condition `json:"condition" mapstructure:"condition"`
 }
 
 type Condition struct {
 	Who   ConditionWho   `json:"who,omitempty" mapstructure:"who"`
-	Where ConditionWhere `json:"Where,omitempty" mapstructure:"where"`
-	When  ConditionWhen  `json:"When,omitempty" mapstructure:"when"`
-	What  ConditionWhat  `json:"What,omitempty" mapstructure:"what"`
+	Where ConditionWhere `json:"where,omitempty" mapstructure:"where"`
+	When  ConditionWhen  `json:"when,omitempty" mapstructure:"when"`
 }
 
 type ConditionWho struct {
@@ -40,17 +38,18 @@ type ConditionWho struct {
 }
 
 type ConditionWhere struct {
-	AllowedIP []string `json:"allowed_ip,omitempty" mapstructure:"allowed_ip"`
-	Country   []string `json:"country,omitempty" mapstructure:"country"`
+	AllowedIP  []string `json:"allowed_ip,omitempty" mapstructure:"allowed_ip"`
+	Country    []string `json:"country,omitempty" mapstructure:"country"`
+	CountryNot []string `json:"country_not,omitempty" mapstructure:"country_not"`
 }
 
 type ConditionWhat struct{}
 
 type ConditionWhen struct {
-	After           *time.Time `json:"after,omitempty" mapstructure:"after"`
-	Before          *time.Time `json:"before,omitempty" mapstructure:"before"`
-	TimeOfDayAfter  string     `json:"time_of_day_after,omitempty" mapstructure:"time_of_day_after"`
-	TimeOfDayBefore string     `json:"time_of_day_before,omitempty" mapstructure:"time_of_day_before"`
+	After           string `json:"after,omitempty" mapstructure:"after"`
+	Before          string `json:"before,omitempty" mapstructure:"before"`
+	TimeOfDayAfter  string `json:"time_of_day_after,omitempty" mapstructure:"time_of_day_after"`
+	TimeOfDayBefore string `json:"time_of_day_before,omitempty" mapstructure:"time_of_day_before"`
 }
 
 type PolicyActionUpdateRequest struct {

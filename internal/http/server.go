@@ -1,13 +1,9 @@
 package http
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
-	"strings"
 
 	jwt "github.com/golang-jwt/jwt"
 )
@@ -59,9 +55,9 @@ func renderResponse(header http.Header, hostName string, adminName string, admin
 
 }
 func StartLocalHTTPServer(dir string, l net.Listener) error {
+	mux := http.NewServeMux()
 
 	if dir == "" {
-
 		// Get Org admin info
 		adminName := "Unknown"
 		adminEmail := "Unknown"
@@ -85,42 +81,21 @@ func StartLocalHTTPServer(dir string, l net.Listener) error {
 
 		}
 
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-			fmt.Fprintf(w, renderResponse(r.Header, r.Host, adminName, adminEmail))
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, renderResponse(r.Header, r.Host, adminName, adminEmail))
 		})
 
-		err = http.Serve(l, nil)
-
-		if err != nil {
-			return err
-		}
-
-		return nil
 	} else {
 		fs := http.FileServer(http.Dir(dir))
-		http.Handle("/", http.StripPrefix("/", fs))
+		mux.Handle("/", http.StripPrefix("/", fs))
 	}
 
-	err := http.Serve(l, nil)
+	err := http.Serve(l, mux)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func getToken() (string, error) {
-	if _, err := os.Stat(tokenfile()); os.IsNotExist(err) {
-		return "", errors.New("please login first (no token found)")
-	}
-	content, err := ioutil.ReadFile(tokenfile())
-	if err != nil {
-		return "", err
-	}
-
-	tokenString := strings.TrimRight(string(content), "\n")
-	return tokenString, nil
 }
 
 func getAdminData() (jwt.MapClaims, error) {

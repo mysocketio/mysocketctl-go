@@ -28,8 +28,8 @@ type PolicyData struct {
 
 type Condition struct {
 	Who   ConditionWho   `json:"who,omitempty" mapstructure:"who"`
-	Where ConditionWhere `json:"Where,omitempty" mapstructure:"where"`
-	When  ConditionWhen  `json:"When,omitempty" mapstructure:"when"`
+	Where ConditionWhere `json:"where,omitempty" mapstructure:"where"`
+	When  ConditionWhen  `json:"when,omitempty" mapstructure:"when"`
 }
 
 type ConditionWho struct {

@@ -224,8 +224,7 @@ var policyShowCmd = &cobra.Command{
 		f := colorjson.NewFormatter()
 		f.Indent = 2
 		colorString, _ := f.Marshal(colorData)
-		fmt.Println("\nPolicy Data:\n")
-
+		fmt.Printf("\nPolicy Data:\n\n")
 		fmt.Println(string(colorString))
 
 	},

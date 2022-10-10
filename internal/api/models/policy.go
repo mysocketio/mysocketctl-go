@@ -23,6 +23,7 @@ type Policy struct {
 }
 
 type PolicyData struct {
+	Version   string    `json:"version"`
 	Action    []string  `json:"action" mapstructure:"action"`
 	Condition Condition `json:"condition" mapstructure:"condition"`
 }
@@ -31,7 +32,6 @@ type Condition struct {
 	Who   ConditionWho   `json:"who,omitempty" mapstructure:"who"`
 	Where ConditionWhere `json:"Where,omitempty" mapstructure:"where"`
 	When  ConditionWhen  `json:"When,omitempty" mapstructure:"when"`
-	What  ConditionWhat  `json:"What,omitempty" mapstructure:"what"`
 }
 
 type ConditionWho struct {
@@ -40,8 +40,9 @@ type ConditionWho struct {
 }
 
 type ConditionWhere struct {
-	AllowedIP []string `json:"allowed_ip,omitempty" mapstructure:"allowed_ip"`
-	Country   []string `json:"country,omitempty" mapstructure:"country"`
+	AllowedIP  []string `json:"allowed_ip,omitempty" mapstructure:"allowed_ip"`
+	Country    []string `json:"country,omitempty" mapstructure:"country"`
+	CountryNot []string `json:"country_not,omitempty" mapstructure:"country_not"`
 }
 
 type ConditionWhat struct{}

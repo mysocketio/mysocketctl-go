@@ -6,6 +6,7 @@ require (
 	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/Microsoft/go-winio v0.5.2 // indirect
+	github.com/TylerBrock/colorjson v0.0.0-20200706003622-8a50f05110d2 // indirect
 	github.com/aws/aws-sdk-go v1.44.54
 	github.com/bluele/factory-go v0.0.1
 	github.com/brianvoe/gofakeit v3.18.0+incompatible

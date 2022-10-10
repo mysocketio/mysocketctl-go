@@ -9,10 +9,14 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/TylerBrock/colorjson"
+	jwt "github.com/golang-jwt/jwt"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/mysocketio/mysocketctl-go/internal/api/models"
 	"github.com/mysocketio/mysocketctl-go/internal/http"
+
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/term"
 )
@@ -209,17 +213,20 @@ var policyShowCmd = &cobra.Command{
 		fmt.Printf("%s\n", t.Render())
 
 		jsonData, err := json.MarshalIndent(policy.PolicyData, "", "  ")
+
 		if err != nil {
 			fmt.Printf("could not marshal json: %s\n", err)
 			return
 		}
+		// This is for the colored JSON output
+		var colorData map[string]interface{}
+		json.Unmarshal([]byte(jsonData), &colorData)
+		f := colorjson.NewFormatter()
+		f.Indent = 2
+		colorString, _ := f.Marshal(colorData)
+		fmt.Println("\nPolicy Data:\n")
 
-		t = table.NewWriter()
-		t.AppendHeader(table.Row{"Policy Data"})
-		t.AppendRow(table.Row{string(jsonData)})
-		t.SetStyle(table.StyleLight)
-
-		fmt.Printf("%s\n", t.Render())
+		fmt.Println(string(colorString))
 
 	},
 }
@@ -502,7 +509,31 @@ func init() {
 }
 
 func policyTemplate() string {
-	return `{
+	// Lets create a template for the policy
+	// start with getting the admin email
+	adminEmail := ""
+	admintoken, err := http.GetToken()
+	if err != nil {
+		log.Fatalf("Error reading token, make sure you're logged in. %v", err)
+	}
+	token, err := jwt.Parse(admintoken, nil)
+	if token == nil {
+		log.Fatalf("Error reading token, make sure you're logged in. %v", err)
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	if _email, ok := claims["user_email"].(string); ok {
+		adminEmail = _email
+	} else {
+		log.Fatalf("Error reading token, make sure you're logged in. %v", err)
+	}
+
+	// Also let's get yesterday's date
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02T15:04:05Z")
+	// set expire date to 3 years from now
+	expireDate := time.Now().AddDate(3, 0, 0).Format("2006-01-02T15:04:05Z")
+
+	return fmt.Sprintf(`{
 	"version": "v1",
 	"action": [
 		"database",
@@ -512,23 +543,23 @@ func policyTemplate() string {
 	"condition": {
 		"who": {
 		"email": [
-			"example@border0.com"
+			"%s"
 		],
 		"domain": [
 			"example.com"
 		]
 		},
 		"where": {
-			"allowed_ip": [],
+			"allowed_ip": ["0.0.0.0/0", "::/0"],
 			"country": [],
 			"country_not": []
 		},
 		"when": {
-			"after": "1970-01-01T00:00:00Z",
-			"before": null,
+			"after": "%s",
+			"before": "%s",
 			"time_of_day_after": "00:00:00 UTC",
 			"time_of_day_before": "23:59:59 UTC"
 		}
 	}
-}`
+}`, adminEmail, yesterday, expireDate)
 }

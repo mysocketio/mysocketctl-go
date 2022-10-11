@@ -69,8 +69,8 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "mysocketctl",
-	Short:   "mysocket.io command line interface (CLI)",
+	Use:     "border0",
+	Short:   "border0 command line interface (CLI)",
 	Version: version,
 }
 
@@ -84,7 +84,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.SetVersionTemplate(fmt.Sprintf("mysocketctl:\nversion %s\ndate: %s\n", version, date))
+	rootCmd.SetVersionTemplate(fmt.Sprintf("border0:\nversion %s\ndate: %s\n", version, date))
 }
 
 func splitLongLines(b string, maxLength int) string {

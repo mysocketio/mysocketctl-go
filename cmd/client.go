@@ -211,7 +211,7 @@ var clientLoginStatusCmd = &cobra.Command{
 		valid, _, email, err := client.IsExistingClientTokenValid("")
 		if !valid {
 			fmt.Println(err)
-			fmt.Println("Please login again: mysocketctl client login")
+			fmt.Println("Please login again: border0 client login")
 		} else {
 			fmt.Println("Token Valid, logged in as " + email)
 		}
@@ -246,7 +246,7 @@ var clientDnsUpdaterCmd = &cobra.Command{
 // clientServiceCmd represents the client service command
 var clientServiceCmd = &cobra.Command{
 	Use:   "service",
-	Short: "Install, Remove, Start and Stop the mysocketctl client service",
+	Short: "Install, Remove, Start and Stop the border0 client service",
 
 	Run: func(cmd *cobra.Command, args []string) {
 

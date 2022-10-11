@@ -32,6 +32,7 @@ type SocketConfig struct {
 	PrivateSocket         bool     `mapstructure:"private_socket"`
 	DatabaseCredentials   string   `mapstructure:"database_credentials"`
 	UpstreamHttpHostname  string   `mapstructure:"upstream_http_hostname"`
+	Policies              []string `mapstructure:"policies"`
 }
 
 type Credentials struct {
@@ -58,6 +59,7 @@ type ConnectorGroups struct {
 	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
+	Policies              []string `mapstructure:"policies"`
 }
 
 type K8Plugin struct {
@@ -66,15 +68,17 @@ type K8Plugin struct {
 	AllowedEmailAddresses []string `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool     `mapstructure:"private_socket"`
+	Policies              []string `mapstructure:"policies"`
 }
 
 type NetworkPlugin struct {
-	Scan_interval         int64 `mapstructure:"scan_interval"`
-	Group                 string
+	Scan_interval         int64                           `mapstructure:"scan_interval"`
+	Group                 string                          `mapstructure:"group"`
 	AllowedEmailAddresses []string                        `mapstructure:"allowed_email_addresses"`
 	AllowedEmailDomains   []string                        `mapstructure:"allowed_email_domains"`
 	PrivateSocket         bool                            `mapstructure:"private_socket"`
 	Networks              map[string]NetworkPluginNetwork `mapstructure:"networks"`
+	Policies              []string                        `mapstructure:"policies"`
 }
 
 type NetworkPluginNetwork struct {

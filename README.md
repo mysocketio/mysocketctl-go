@@ -1,3 +1,8 @@
+## This repository is now archived
+
+To follow the new chapter and further development [go here](https://github.com/borderzero/border0-cli)
+
+----
 Mysocketctl: a CLI tool for Mysocket.io 
 ===================================================
 This is the Go Implementation of mysocketctl

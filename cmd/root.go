@@ -146,5 +146,21 @@ func print_socket(s models.Socket) string {
 		}
 	}
 
+	if len(s.Policies) > 0 {
+		tp := table.NewWriter()
+		tp.AppendHeader(table.Row{"Policy Name", "Policy Description", "Organization Wide"})
+		for _, p := range s.Policies {
+			orgWide := "No"
+
+			if p.OrgWide {
+				orgWide = "Yes"
+			}
+			tp.AppendRow(table.Row{p.Name, p.Description, orgWide})
+		}
+		tp.SetStyle(table.StyleLight)
+		socket_output = socket_output + fmt.Sprintf("\nPolicies:\n%s\n", tp.Render())
+
+	}
+
 	return socket_output
 }

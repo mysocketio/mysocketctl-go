@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type CreatePolicyRequest struct {
 	Name        string     `json:"name" binding:"required"`
@@ -59,4 +61,13 @@ type PolicyActionUpdateRequest struct {
 }
 type AddSocketToPolicyRequest struct {
 	Actions []PolicyActionUpdateRequest `json:"actions" binding:"required"`
+}
+
+type SocketPolicy struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	OrgID       string    `json:"org_id"`
+	OrgWide     bool      `json:"org_wide"`
+	CreatedAt   time.Time `json:"created_at"`
 }
